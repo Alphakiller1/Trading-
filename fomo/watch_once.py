@@ -22,10 +22,10 @@ for off in range(0,300,50):
 now=time.time()
 def check(c):
     m=c["mint"]; mc=c.get("usd_market_cap") or 0
-    if not (8000<=mc<=80000): return None
+    if not (5000<=mc<=200000): return None
     tr=[]; cur=None
     full=False
-    for _ in range(15):
+    for _ in range(30):
         p=dict(limit=100,program="pump",chainId=CH)
         if cur: p["cursor"]=cur
         d=get(f"https://swap-api.pump.fun/v2/coins/{m}/trades",p)

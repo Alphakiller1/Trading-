@@ -111,7 +111,7 @@ Caveat: n = 23, with only 10 trades in half B. Promising, but not proven. The ru
 | PUMP | −3% (stop flash) | Same leader as TRUMP |
 
 ## Open work
-- Re-test the copy rule on full coin histories (the re-download was paused when pump.fun rate-limited it).
+- Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.
 - Add time-of-day and copy-signal conditioning to the backtest.
 - Alert bot, `bot.py`, combining the live scanner and exit watcher with Telegram or Discord output.
