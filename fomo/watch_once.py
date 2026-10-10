@@ -13,9 +13,14 @@ smart={w:(a[1]/a[2],a[0],a[3]/a[0]) for w,a in acc.items() if w not in BL and a[
 
 def sec(s): return dt.datetime.fromisoformat(s.replace("Z","+00:00")).timestamp()
 def get(u,p):
-    try:
-        r=S.get(u,params=p,timeout=15); return r.json() if r.ok else None
-    except Exception: return None
+    for i in range(4):
+        try:
+            r=S.get(u,params=p,timeout=15)
+            if r.ok: return r.json()
+            if r.status_code!=429: return None
+        except Exception: pass
+        time.sleep(2*(i+1))
+    return None
 coins={}
 for off in range(0,300,50):
     for c in get(f"{B}/coins",dict(offset=off,limit=50,sort="last_trade_timestamp",order="DESC",includeNsfw="false")) or []:
@@ -24,9 +29,11 @@ now=time.time()
 def check(c):
     m=c["mint"]; mc=c.get("usd_market_cap") or 0
     if not (5000<=mc<=200000): return None
+    pre=get(f"https://swap-api.pump.fun/v2/coins/{m}/trades",dict(limit=100,program="pump",chainId=CH))
+    if not pre or not any(t["type"]=="buy" and t["userAddress"] in smart and now-sec(t["timestamp"])<=120 for t in pre["trades"]): return None
     tr=[]; cur=None
     full=False
-    for _ in range(30):
+    for _ in range(10):
         p=dict(limit=100,program="pump",chainId=CH)
         if cur: p["cursor"]=cur
         d=get(f"https://swap-api.pump.fun/v2/coins/{m}/trades",p)
@@ -73,7 +80,7 @@ def check(c):
                 hits=[(w[:6],round(smart[w][0]*100),smart[w][1],round(now-t),round(u),round(mcx)) for w,t,u,mcx in hits],
                 holding=len(hold),buy5=round(b),sell5=round(s),buyers5=buyers,complete=c.get("complete"),
                 twitter=bool(c.get("twitter")),price=float(tr[-1]["priceUsd"]))
-with cf.ThreadPoolExecutor(10) as ex: res=[r for r in ex.map(check,coins.values()) if r]
+with cf.ThreadPoolExecutor(4) as ex: res=[r for r in ex.map(check,coins.values()) if r]
 res.sort(key=lambda r:(-r["holding"],r["devsold"],-(r["buy5"]-r["sell5"])))
 json.dump(res,open("live_candidates.json","w"),indent=1)
 for r in res[:5]: print(time.strftime('%H:%M:%S'),'PAPER-SIGNAL',r['sym'],r['mint'],'trigger_mc',r['trig_mc'],'now_mc',r['cur_mc'],'age_h',round(r['age_h'],2),'buyers5',r['buyers5'],'net5',r['buy5']-r['sell5'],'leader',r['hits'][0],'conc',r['conc'],'dexprofile',r['dex']['profile'],'boosts',r['dex']['boosts'],'social',r['social'],flush=True)

@@ -80,7 +80,7 @@ def run(min_runner=0.0,shrink=0,half_mirror=False,rest_trail=None,min_hold=20,ea
                 if half_mirror and tp_done and rest_trail and p<=hi*(1-rest_trail): why="rest_trail"; pxx=p; break
                 if ts[n]-t_in>tmax: why="time"; pxx=p; break
             got+=bt.sell(left,pxx*lift,k)
-            out.append(dict(h=h,m=m,pnl=got-size,why=why))
+            out.append(dict(h=h,m=m,pnl=got-size,why=why,i=i,j=j,leader=leader))
     return out
 def rep(r,size=100):
     def one(rr):

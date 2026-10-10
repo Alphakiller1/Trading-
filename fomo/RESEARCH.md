@@ -196,6 +196,37 @@ Best: $190–$250 (fomo's 0.5% fee tier, little slippage). It still works at $1k
 - when the leader sells: sell half and trail the rest 30% from its peak
 - time limit: 2 hours
 
+## Size tiers: $20–55 / $60–125 / $130–250
+Run with `tiers.py`. 53 copy-signal trades (v4 exits, coins with complete histories, ≤ $200k).
+
+**Predictability score (0–5)**, pre-specified, not fitted:
+- +2 if the top-3 early-buyer share is ≤ 60% (+1 if ≤ 80%)
+- +1 if the dev has not sold
+- +1 if the leader has 5+ past coins
+- +1 if the coin has real socials (website, Telegram or an X profile)
+
+**ROI by score:**
+- Only **score 5 is positive on both halves**: +35.1% (half A +47.2%, half B +21.2%), +9.2% without the top 2%.
+- Scores 3–4 are mixed or negative.
+
+**Volatility (5-minute price range before entry). Lower is not safer here:**
+
+| Range | ROI per trade |
+|---|---|
+| Low (< 12%) | **−13.1%** (both halves negative: a calm coin is usually a dying coin) |
+| Mid (12–32%) | **+36.2%** |
+| High (≥ 32%) | +5.1% |
+
+**Market cap:** nearly all signals fire under $15k (+15.7%). The $15k–$80k signals were negative, but n = 9.
+
+**Tier rules (v2):**
+- **Skip:** dev sold, volatility < 12%, or score ≤ 3. **Robust: −10% on both halves.**
+- **T3 ($130–250):** score 5 and volatility 12–32%. In-sample +154%, but **n = 4, so not proven**.
+- **T2 ($60–125):** score 5 and volatility ≥ 32%. +0.2% (n = 6).
+- **T1 ($20–55):** score 4 (with volatility ≥ 12%). +22.6% (n = 10), half B −9.5%.
+
+The skip rule is the reliable part. The tier boundaries were tuned on the same data and need paper-trade validation.
+
 ## Open work
 - Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.
