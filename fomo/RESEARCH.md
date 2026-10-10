@@ -227,6 +227,26 @@ Run with `tiers.py`. 53 copy-signal trades (v4 exits, coins with complete histor
 
 The skip rule is the reliable part. The tier boundaries were tuned on the same data and need paper-trade validation.
 
+## Live results, 2026-10-10 evening (the honest scoreboard)
+| Time (UTC) | Coin | Type | Signal mcap | Result within minutes |
+|---|---|---|---|---|
+| 21:40 | GEPE | copy signal | $18.6k | −35%, stop |
+| 21:42 | Samsol | copy, $25 real | $13.7k | dipped −28%, exited about −12% |
+| 22:02 | ZZZ | copy (paper) | $71.9k | −38%, leader sold within 30s |
+| 22:06 | TRUMP | copy (paper) | $41.0k | −99% rug |
+| 22:06 | PUMP | copy (paper) | $45.1k | −99% rug |
+| 23:11 | OPENWORK | copy, score 4 | $4.8k | −36%, leader sold |
+| 23:24 | pup | organic momentum, real $23 | $35.5k | **−48% in under 1 min** |
+
+**7 of 7 live picks fell 25–99% within minutes.** The backtested copy edge (+29% per trade on 23 trades) did **not** show up live.
+
+Likely reasons:
+1. The backtest was too small and leaned on 2 runners.
+2. At human speed, the copied wallets and dumpers exit before a manual trader can.
+3. Prices gap through stops on thin bonding curves, so a −30% stop often fills at −40% to −99%.
+
+**Conclusion: do not trade this strategy with real money.** Any continuation is paper-only, until at least 50 paper trades show a positive after-cost result.
+
 ## Open work
 - Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.

@@ -27,7 +27,7 @@ def check(c):
     m=c["mint"]; mc=c.get("usd_market_cap") or 0
     if not (4000<=mc<=100000): return None
     pre=get(f"https://swap-api.pump.fun/v2/coins/{m}/trades",dict(limit=100,program="pump",chainId=CH))
-    if not pre or not any(t["type"]=="buy" and t["userAddress"] in smart and now-sec(t["timestamp"])<=300 for t in pre["trades"]): return None
+    if not pre or not any(t["type"]=="buy" and t["userAddress"] in smart and now-sec(t["timestamp"])<=900 for t in pre["trades"]): return None
     tr=[];cur=None;full=False
     for _ in range(10):
         p=dict(limit=100,program="pump",chainId=CH)

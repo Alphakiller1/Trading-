@@ -27,7 +27,7 @@ def check(c):
     m=c["mint"]; mc=c.get("usd_market_cap") or 0
     if not (4000<=mc<=100000): return None
     pre=get(f"https://swap-api.pump.fun/v2/coins/{m}/trades",dict(limit=100,program="pump",chainId=CH))
-    if not pre or not any(t["type"]=="buy" and t["userAddress"] in smart and now-sec(t["timestamp"])<=150 for t in pre["trades"]): return None
+    if not pre or not any(t["type"]=="buy" and t["userAddress"] in smart and now-sec(t["timestamp"])<=330 for t in pre["trades"]): return None
     tr=[];cur=None;full=False
     for _ in range(10):
         p=dict(limit=100,program="pump",chainId=CH)
@@ -71,6 +71,7 @@ with cf.ThreadPoolExecutor(4) as ex: res=[r for r in ex.map(check,coins.values()
 res.sort(key=lambda r:(-(r["score"]),r["devsold"],r["leader_sold"],-r["net5"]))
 json.dump(res,open("picks.json","w"),indent=1)
 for r in res:
-    if r["score"]>=4 and not r["devsold"] and not r["leader_sold"] and r["vol5"]>=12 and -15<=r["chase"]<=15 and r["sig_age_s"]<=120 and r["mc"]<=100000:
-        tier="T3 $130-250" if r["score"]==5 and r["vol5"]<32 else "T2 $60-125" if r["score"]==5 else "T1 $20-55"
+    base=not r["devsold"] and not r["leader_sold"] and r["vol5"]>=12 and -30<=r["chase"]<=30 and r["sig_age_s"]<=300 and r["mc"]<=100000
+    if base and r["score"]>=3:
+        tier=("T3 $130-250" if r["score"]==5 and r["vol5"]<32 else "T2 $60-125" if r["score"]==5 else "T1 $20-55") if r["score"]>=4 else "LOWER-QUALITY (score 3)"
         print(time.strftime("%H:%M:%S"),"QUALIFIED",tier,json.dumps(r),flush=True)
