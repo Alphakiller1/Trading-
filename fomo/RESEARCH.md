@@ -247,8 +247,21 @@ Likely reasons:
 
 **Conclusion: do not trade this strategy with real money.** Any continuation is paper-only, until at least 50 paper trades show a positive after-cost result.
 
+## Walk-forward test: the copy edge was a look-ahead artifact
+Run with `walkforward.py`. Wallet skill is measured using **only trades before cutoff T** (open positions marked at T); signals are traded only after T. Cutoff 19:55 UTC (later cutoffs leave no room for trades to finish before the data ends):
+
+| Rule | n | ROI per trade | Median |
+|---|---|---|---|
+| v4 (bundle ≤ 60%, dev not sold) | 6 | −8.1% | −7.7% |
+| No bundle filter | 18 | +4.0% | −7.1% |
+| All copy signals | 45 | −3.5% | −11.4% |
+
+- The coin-half split had a leak: all coins traded in the same window, so a wallet's skill came partly from how its same-period trades turned out. Once that leak is removed, the edge disappears. That matches the live record of 0 for 7.
+- **What survives every test is the avoid list:** dev sold, bundled launch, volatility < 12%, and buying fresh launches after a run.
+- **What's needed is multi-day data**, so walk-forward tests can use days of training and a separate test day. `collector.py` is built to run for days on a home PC.
+
 ## Open work
-- Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
+- (superseded by the walk-forward result) Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.
 - Add time-of-day and copy-signal conditioning to the backtest.
 - Alert bot, `bot.py`, combining the live scanner and exit watcher with Telegram or Discord output.

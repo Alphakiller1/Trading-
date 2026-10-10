@@ -4,41 +4,30 @@ Research and tooling for trading strategies.
 
 ## Projects
 
-### `fomo/`: meme-coin strategy for the fomo app (Solana, sub-$80k market caps)
+### `fomo/`: meme-coin research for the fomo app (Solana, pump.fun coins ≤ $200k)
 
-Goal: adapt the TWS momentum bot logic (below) to low-cap Solana meme coins traded on [fomo](https://fomo.family).
-The rules come from two sources:
+**Status (2026-10-10): no validated edge. Do not trade real money with these signals.** Full write-up: [`fomo/RESEARCH.md`](fomo/RESEARCH.md).
 
-1. **What profitable small traders actually do.** Wallets sized under $1k per trade and under $5k per day, on coins below an $80k market cap.
-2. **A backtest of the TWS signal on real pump.fun trade data**, with realistic costs: fomo fees, pump.fun fees and bonding-curve slippage.
-
-Trade size: **$25–$250 per trade**. Use larger sizes on calmer coins and smaller sizes on more volatile ones.
-
-| Script | What it does |
+| Finding | Evidence |
 |---|---|
-| `collect.py` | Pulls recent pump.fun coins and their full trade tapes from pump.fun's public APIs into `data/` |
-| `analyze.py` | Market overview: trades below $80k market cap, buy-size distribution, coin peak market caps |
-| `wallets.py` | Rebuilds every wallet's position per coin (entry market cap, hold time, PnL) and finds small-size wallets |
-| `profiles.py` | Pulls 1-day and 1-week PnL and buy spend for candidate wallets (for the $5k/day filter) |
-| `backtest.py` | The TWS signal on trade tapes, with fomo fee tiers, 1% pump.fun fee and constant-product slippage |
-| `sweep.py` | Parameter sweep with a train/test split by coin, to avoid overfitting |
+| Costs: round trip 5.9% at $25, 3.9% at $100, 3.0% at $190+; random entries lose 11–14% at human speed | `backtest.py`, `strategies.py` |
+| TWS EMA/VWAP momentum, launch sniping, dip-buying and graduation plays all lose after costs | `run_strats.py`, `dips.py`, `early_quality.py` |
+| The copy-trade "edge" (+29% on a coin-half split) was look-ahead. **Walk-forward: −3.5% to −8%** | `copy2-4.py`, `walkforward.py` |
+| Live: 7 of 7 picks fell 25–99% within minutes | RESEARCH.md scoreboard |
+| **Robust avoid rules:** dev sold, bundled launch (top-3 early buyers > 60%), volatility < 12%, buying fresh launches after a run | `cohort.py`, `tiers.py`, `dips.py` |
+| Peak/attention windows: 5–7 PM ET and midnight–4 AM ET; worst 7–8 AM ET | `chain_hours.py`, `hours.py` |
 
-Run order, from `fomo/data/`:
+**Next step: collect multi-day data, then walk-forward everything.**
 
 ```bash
 cd fomo/data
-python ../collect.py          # ~30-60 min
-python ../analyze.py
-python ../wallets.py
-python ../profiles.py
-PYTHONPATH=.. python ../backtest.py
-PYTHONPATH=.. python ../sweep.py
+python ../collector.py                               # leave running for 5–7 days (Ctrl+C to stop; resumes)
+python ../collector.py --export trades.json coins.json
+python ../analyze.py && python ../wallets.py         # rebuild wallet positions
+python ../walkforward.py                             # past-only skill -> future trades
 ```
 
-#### Cost model (check the current fees in the app)
-- fomo spot fee (reported tiers): flat $0.10 under $5; 2% from $5 to $47.50; flat $0.95 from $47.50 to $190; 0.5% at $190 and above
-- pump.fun bonding curve: about 1% per side
-- Slippage: constant-product bonding curve (virtual reserves taken from the coin's data)
+A strategy graduates to paper trading (`bot.py`, alerts only) only if it's positive in walk-forward on held-out **days**, and to real money only after 50+ paper trades positive after costs.
 
 ### TWS momentum bot review (Interactive Brokers, Oct 2026)
 
