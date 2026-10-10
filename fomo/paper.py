@@ -36,24 +36,35 @@ def pnl(size,pe,px):
     vS=math.sqrt(pe/1e9/bt.SOLUSD*k); lift=((vS+x)/vS)**2
     return round(bt.sell(tok,px/1e9*lift,k)-size,2)
 def track(sig):
+    """v4 exit: 30% stop until the leader sells; when the leader sells, sell HALF and trail the rest 30% from its peak; 2h max."""
     m=sig["mint"]; time.sleep(LAT)
     tr=latest(m,10); leader=next((t["userAddress"] for t in tr if t["userAddress"].startswith(sig["leader"])),None)
     if not tr: return
-    entry=float(tr[0]["priceUsd"])*1e9; t0=time.time(); why="time"; ex=entry
+    entry=float(tr[0]["priceUsd"])*1e9; t0=time.time(); why="time"; ex=entry; half_at=None; hi=entry
     while time.time()-t0<7200:
         time.sleep(5)
         tr=latest(m)
         if not tr: continue
-        ex=float(tr[0]["priceUsd"])*1e9
-        if any(t["userAddress"]==leader and t["type"]=="sell" for t in tr): why="leader_sold"; break
-        if ex<=entry*0.7: why="stop"; break
-    time.sleep(LAT if why!="stop" else 0)
+        ex=float(tr[0]["priceUsd"])*1e9; hi=max(hi,ex)
+        if half_at is None:
+            if any(t["userAddress"]==leader and t["type"]=="sell" for t in tr):
+                time.sleep(LAT); tr2=latest(m,1); half_at=float(tr2[0]["priceUsd"])*1e9 if tr2 else ex; hi=half_at
+                print(f"[paper] {sig['sym']} leader sold -> sold half at {half_at:,.0f} ({(half_at/entry-1)*100:+.0f}%), trailing rest",flush=True)
+                continue
+            if ex<=entry*0.7: why="stop"; break
+        else:
+            if ex<=hi*0.7: why="trail"; break
+    if why!="stop": time.sleep(LAT)
     tr=latest(m,1); ex=float(tr[0]["priceUsd"])*1e9 if tr else ex
-    row=[sig["t"],sig["sym"],m,leader,sig["trig"],round(entry),round(ex),why,round((time.time()-t0)/60,1),round((ex/entry-1)*100,1),pnl(25,entry,ex),pnl(100,entry,ex),pnl(250,entry,ex)]
+    def pnl2(size):
+        if half_at is None: return pnl(size,entry,ex)
+        return round(pnl(size/2,entry,half_at)+pnl(size/2,entry,ex),2)
+    ret=((half_at/entry-1)*50+(ex/entry-1)*50) if half_at else (ex/entry-1)*100
+    row=[sig["t"],sig["sym"],m,leader,sig["trig"],round(entry),round(ex),why if half_at is None else "half+"+why,round((time.time()-t0)/60,1),round(ret,1),pnl2(25),pnl2(100),pnl2(250)]
     with lock:
         csv.writer(open(LOG,"a")).writerow(row)
-        if row[9]<=-80 and leader: open("blacklist.txt","a").write(leader+"\n")   # leader's signal was a rug -> never copy again
-    print(f"[paper] {sig['sym']} closed: {why}, {row[9]:+.1f}% in {row[8]} min | $100 trade: {row[11]:+.2f}",flush=True)
+        if ret<=-80 and leader: open("blacklist.txt","a").write(leader+"\n")
+    print(f"[paper] {sig['sym']} closed: {row[7]}, {ret:+.1f}% in {row[8]} min | $250 trade: {row[12]:+.2f}",flush=True)
 pat=re.compile(r"PAPER-SIGNAL (\S+) (\S+) trigger_mc (\d+) now_mc (\d+) .* leader \('(\w+)'")
 while True:
     try: out=subprocess.run(["python3","watch_once.py"],capture_output=True,text=True,timeout=110).stdout

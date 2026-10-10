@@ -160,6 +160,42 @@ Source: `early_quality.py`. Rule: buy at 60–120 seconds if many buyers, low co
 
 - **Profile: lottery-like.** Many small losses and rare 3–5× runners. It needs many small trades, fast execution (≤ 30s) and no early profit-taking. It is not low-risk.
 
+## Copy model v4: size and exit optimization
+Run with `run_v4.py`. Bundle filter + dev not sold, market cap ≤ $200k, coins with complete histories.
+
+**Trade size** (fees vs slippage):
+
+| Size | ROI per trade | Without top 2% |
+|---|---|---|
+| $20 | +27.3% | +7.4% |
+| $100 | +29.0% | +9.4% |
+| **$190** | **+29.1%** | **+10.1%** |
+| $250 | +28.6% | +10.0% |
+| $500 | +26.7% | +9.7% |
+| $1,000 | +24.0% | +9.1% |
+| $2,000 | +20.6% | +8.2% |
+
+Best: $190–$250 (fomo's 0.5% fee tier, little slippage). It still works at $1k–$2k.
+
+**Exits:**
+
+| Exit | ROI | Without top 2% | Half A | Half B |
+|---|---|---|---|---|
+| Mirror the leader (v3) | +29.0% | +9.4% | +47.9% | +4.3% |
+| **Sell half when the leader sells, trail the rest 30%** | **+33.8%** | **+16.9%** | **+48.7%** | **+14.4%** |
+| Half on leader sell, trail rest 50% | +30.8% | +9.7% | +51.5% | +4.0% |
+| Half on leader sell, hold rest 2h | +27.5% | +11.2% | +45.2% | +4.5% |
+
+**Leader selection:**
+- Stricter filters hurt: leader ROI > 25% gave −12.0%, and leader runner share ≥ 20% gave −2.4%.
+- Runner share ≥ 10% gave +34.7% but on only 17 trades.
+
+**Adopted in `paper.py`:**
+- size: $190–$250
+- before the leader sells: stop at −30%
+- when the leader sells: sell half and trail the rest 30% from its peak
+- time limit: 2 hours
+
 ## Open work
 - Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.
