@@ -1,0 +1,147 @@
+## launch_30s_<6k | exits=wide
+  $25  TRAIN n=107 win%=30 roi=-1.4% med=-15.6% roi_ex_top1%=-5.7% exits={'end': 32, 'stop': 45, 'trail': 22, 'time': 8}
+       TEST  n=119 win%=30 roi=-4.6% med=-17.0% roi_ex_top1%=-7.0% exits={'end': 32, 'stop': 52, 'trail': 27, 'time': 8}
+  $100 TRAIN n=107 win%=31 roi=+2.1% med=-13.8% roi_ex_top1%=-2.3% exits={'end': 32, 'stop': 45, 'trail': 22, 'time': 8}
+       TEST  n=119 win%=31 roi=-0.7% med=-15.2% roi_ex_top1%=-3.1% exits={'end': 32, 'stop': 52, 'trail': 27, 'time': 8}
+  $250 TRAIN n=107 win%=31 roi=+5.0% med=-12.8% roi_ex_top1%=+0.6% exits={'end': 32, 'stop': 45, 'trail': 22, 'time': 8}
+       TEST  n=119 win%=31 roi=+2.8% med=-14.1% roi_ex_top1%=+0.3% exits={'end': 32, 'stop': 52, 'trail': 27, 'time': 8}
+## launch_30s_<6k | exits=tight
+  $25  TRAIN n=107 win%=35 roi=+1.3% med=-9.9% roi_ex_top1%=-3.0% exits={'end': 20, 'stop': 50, 'trail': 30, 'time': 7}
+       TEST  n=119 win%=29 roi=-5.8% med=-15.4% roi_ex_top1%=-8.2% exits={'end': 21, 'stop': 61, 'trail': 30, 'time': 7}
+  $100 TRAIN n=107 win%=36 roi=+4.9% med=-8.0% roi_ex_top1%=+0.6% exits={'end': 20, 'stop': 50, 'trail': 30, 'time': 7}
+       TEST  n=119 win%=30 roi=-2.1% med=-13.5% roi_ex_top1%=-4.5% exits={'end': 21, 'stop': 61, 'trail': 30, 'time': 7}
+  $250 TRAIN n=107 win%=36 roi=+8.1% med=-7.1% roi_ex_top1%=+3.8% exits={'end': 20, 'stop': 50, 'trail': 30, 'time': 7}
+       TEST  n=119 win%=30 roi=+1.2% med=-12.3% roi_ex_top1%=-1.2% exits={'end': 21, 'stop': 61, 'trail': 30, 'time': 7}
+## launch_30s_<6k | exits=runner
+  $25  TRAIN n=107 win%=22 roi=+7.2% med=-19.9% roi_ex_top1%=+0.3% exits={'end': 47, 'stop': 41, 'trail': 14, 'time': 5}
+       TEST  n=119 win%=25 roi=-2.2% med=-20.5% roi_ex_top1%=-5.3% exits={'end': 50, 'stop': 47, 'trail': 17, 'time': 5}
+  $100 TRAIN n=107 win%=23 roi=+10.7% med=-18.3% roi_ex_top1%=+3.7% exits={'end': 47, 'stop': 41, 'trail': 14, 'time': 5}
+       TEST  n=119 win%=25 roi=+1.6% med=-18.9% roi_ex_top1%=-1.5% exits={'end': 50, 'stop': 47, 'trail': 17, 'time': 5}
+  $250 TRAIN n=107 win%=24 roi=+13.1% med=-17.1% roi_ex_top1%=+6.3% exits={'end': 47, 'stop': 41, 'trail': 14, 'time': 5}
+       TEST  n=119 win%=25 roi=+4.5% med=-17.7% roi_ex_top1%=+1.3% exits={'end': 50, 'stop': 47, 'trail': 17, 'time': 5}
+## launch_60s_6-15k | exits=wide
+  $25  TRAIN n=21 win%=33 roi=-2.4% med=-25.0% roi_ex_top1%=-9.0% exits={'end': 2, 'trail': 7, 'stop': 12}
+       TEST  n=24 win%=33 roi=-11.4% med=-25.1% roi_ex_top1%=-16.3% exits={'trail': 7, 'stop': 15, 'end': 1, 'time': 1}
+  $100 TRAIN n=21 win%=33 roi=+0.1% med=-23.5% roi_ex_top1%=-6.9% exits={'end': 2, 'trail': 7, 'stop': 12}
+       TEST  n=24 win%=33 roi=-8.8% med=-23.4% roi_ex_top1%=-14.4% exits={'trail': 7, 'stop': 15, 'end': 1, 'time': 1}
+  $250 TRAIN n=21 win%=33 roi=+2.5% med=-22.3% roi_ex_top1%=-4.8% exits={'end': 2, 'trail': 7, 'stop': 12}
+       TEST  n=24 win%=33 roi=-6.2% med=-22.3% roi_ex_top1%=-12.4% exits={'trail': 7, 'stop': 15, 'end': 1, 'time': 1}
+## launch_60s_6-15k | exits=tight
+  $25  TRAIN n=21 win%=38 roi=+2.4% med=-15.6% roi_ex_top1%=-4.8% exits={'end': 1, 'trail': 9, 'stop': 11}
+       TEST  n=24 win%=29 roi=-12.2% med=-16.2% roi_ex_top1%=-17.6% exits={'stop': 16, 'trail': 7, 'end': 1}
+  $100 TRAIN n=21 win%=38 roi=+5.2% med=-13.6% roi_ex_top1%=-2.4% exits={'end': 1, 'trail': 9, 'stop': 11}
+       TEST  n=24 win%=29 roi=-9.8% med=-14.3% roi_ex_top1%=-15.8% exits={'stop': 16, 'trail': 7, 'end': 1}
+  $250 TRAIN n=21 win%=38 roi=+8.0% med=-12.6% roi_ex_top1%=+0.0% exits={'end': 1, 'trail': 9, 'stop': 11}
+       TEST  n=24 win%=29 roi=-7.4% med=-13.2% roi_ex_top1%=-14.0% exits={'stop': 16, 'trail': 7, 'end': 1}
+## launch_60s_6-15k | exits=runner
+  $25  TRAIN n=21 win%=19 roi=+68.3% med=-35.2% roi_ex_top1%=-22.3% exits={'end': 2, 'stop': 16, 'trail': 1, 'time': 2}
+       TEST  n=24 win%=25 roi=-12.9% med=-34.7% roi_ex_top1%=-21.2% exits={'end': 4, 'stop': 16, 'trail': 4}
+  $100 TRAIN n=21 win%=19 roi=+70.8% med=-34.0% roi_ex_top1%=-20.5% exits={'end': 2, 'stop': 16, 'trail': 1, 'time': 2}
+       TEST  n=24 win%=25 roi=-10.7% med=-33.5% roi_ex_top1%=-19.5% exits={'end': 4, 'stop': 16, 'trail': 4}
+  $250 TRAIN n=21 win%=19 roi=+72.0% med=-32.9% roi_ex_top1%=-19.0% exits={'end': 2, 'stop': 16, 'trail': 1, 'time': 2}
+       TEST  n=24 win%=25 roi=-8.8% med=-32.4% roi_ex_top1%=-18.0% exits={'end': 4, 'stop': 16, 'trail': 4}
+## tws15s_10-40k | exits=wide
+  $25  TRAIN n=35 win%=23 roi=-12.8% med=-24.3% roi_ex_top1%=-14.0% exits={'stop': 18, 'trail': 3, 'time': 13, 'end': 1}
+       TEST  n=38 win%=32 roi=-5.4% med=-11.4% roi_ex_top1%=-6.5% exits={'stop': 14, 'time': 17, 'end': 2, 'trail': 5}
+  $100 TRAIN n=35 win%=23 roi=-10.9% med=-21.5% roi_ex_top1%=-12.1% exits={'stop': 18, 'trail': 3, 'time': 13, 'end': 1}
+       TEST  n=38 win%=32 roi=-3.4% med=-9.5% roi_ex_top1%=-4.6% exits={'stop': 14, 'time': 17, 'end': 2, 'trail': 5}
+  $250 TRAIN n=35 win%=23 roi=-9.5% med=-18.4% roi_ex_top1%=-10.8% exits={'stop': 18, 'trail': 3, 'time': 13, 'end': 1}
+       TEST  n=38 win%=34 roi=-1.9% med=-8.6% roi_ex_top1%=-3.3% exits={'stop': 14, 'time': 17, 'end': 2, 'trail': 5}
+## tws15s_10-40k | exits=tight
+  $25  TRAIN n=35 win%=11 roi=-10.9% med=-16.0% roi_ex_top1%=-12.1% exits={'stop': 23, 'time': 9, 'trail': 3}
+       TEST  n=38 win%=29 roi=-3.9% med=-8.7% roi_ex_top1%=-5.3% exits={'stop': 16, 'time': 14, 'trail': 7, 'end': 1}
+  $100 TRAIN n=35 win%=11 roi=-9.0% med=-13.9% roi_ex_top1%=-10.2% exits={'stop': 23, 'time': 9, 'trail': 3}
+       TEST  n=38 win%=32 roi=-1.9% med=-6.8% roi_ex_top1%=-3.3% exits={'stop': 16, 'time': 14, 'trail': 7, 'end': 1}
+  $250 TRAIN n=35 win%=11 roi=-7.7% med=-12.9% roi_ex_top1%=-9.0% exits={'stop': 23, 'time': 9, 'trail': 3}
+       TEST  n=38 win%=32 roi=-0.5% med=-5.8% roi_ex_top1%=-2.0% exits={'stop': 16, 'time': 14, 'trail': 7, 'end': 1}
+## tws15s_10-40k | exits=runner
+  $25  TRAIN n=35 win%=11 roi=-24.2% med=-34.2% roi_ex_top1%=-25.8% exits={'stop': 21, 'time': 10, 'end': 3, 'trail': 1}
+       TEST  n=38 win%=29 roi=-5.2% med=-10.6% roi_ex_top1%=-7.5% exits={'end': 7, 'stop': 14, 'time': 14, 'trail': 3}
+  $100 TRAIN n=35 win%=14 roi=-22.5% med=-33.0% roi_ex_top1%=-24.2% exits={'stop': 21, 'time': 10, 'end': 3, 'trail': 1}
+       TEST  n=38 win%=34 roi=-3.2% med=-8.7% roi_ex_top1%=-5.6% exits={'end': 7, 'stop': 14, 'time': 14, 'trail': 3}
+  $250 TRAIN n=35 win%=14 roi=-21.2% med=-31.7% roi_ex_top1%=-23.0% exits={'stop': 21, 'time': 10, 'end': 3, 'trail': 1}
+       TEST  n=38 win%=37 roi=-2.0% med=-7.7% roi_ex_top1%=-4.5% exits={'end': 7, 'stop': 14, 'time': 14, 'trail': 3}
+## tws60s_10-80k_age>1h | exits=wide
+  $25  TRAIN n=29 win%=10 roi=-14.1% med=-15.3% roi_ex_top1%=-15.3% exits={'time': 18, 'stop': 9, 'end': 1, 'trail': 1}
+       TEST  n=41 win%=10 roi=-13.5% med=-11.0% roi_ex_top1%=-13.9% exits={'stop': 11, 'time': 26, 'trail': 2, 'end': 2}
+  $100 TRAIN n=29 win%=14 roi=-12.2% med=-13.6% roi_ex_top1%=-13.6% exits={'time': 18, 'stop': 9, 'end': 1, 'trail': 1}
+       TEST  n=41 win%=12 roi=-11.6% med=-9.1% roi_ex_top1%=-12.1% exits={'stop': 11, 'time': 26, 'trail': 2, 'end': 2}
+  $250 TRAIN n=29 win%=14 roi=-11.1% med=-12.6% roi_ex_top1%=-12.6% exits={'time': 18, 'stop': 9, 'end': 1, 'trail': 1}
+       TEST  n=41 win%=12 roi=-10.6% med=-8.1% roi_ex_top1%=-11.1% exits={'stop': 11, 'time': 26, 'trail': 2, 'end': 2}
+## tws60s_10-80k_age>1h | exits=tight
+  $25  TRAIN n=29 win%=10 roi=-11.3% med=-15.5% roi_ex_top1%=-12.3% exits={'stop': 16, 'time': 11, 'trail': 2}
+       TEST  n=41 win%=17 roi=-8.7% med=-9.3% roi_ex_top1%=-9.0% exits={'stop': 12, 'time': 24, 'trail': 4, 'end': 1}
+  $100 TRAIN n=29 win%=14 roi=-9.4% med=-13.8% roi_ex_top1%=-10.5% exits={'stop': 16, 'time': 11, 'trail': 2}
+       TEST  n=41 win%=20 roi=-6.7% med=-7.4% roi_ex_top1%=-7.1% exits={'stop': 12, 'time': 24, 'trail': 4, 'end': 1}
+  $250 TRAIN n=29 win%=14 roi=-8.3% med=-12.8% roi_ex_top1%=-9.5% exits={'stop': 16, 'time': 11, 'trail': 2}
+       TEST  n=41 win%=22 roi=-5.6% med=-6.5% roi_ex_top1%=-6.0% exits={'stop': 12, 'time': 24, 'trail': 4, 'end': 1}
+## tws60s_10-80k_age>1h | exits=runner
+  $25  TRAIN n=29 win%=10 roi=-24.0% med=-34.2% roi_ex_top1%=-24.5% exits={'time': 10, 'stop': 16, 'end': 3}
+       TEST  n=41 win%=22 roi=-11.2% med=-15.1% roi_ex_top1%=-12.9% exits={'stop': 14, 'time': 19, 'end': 6, 'trail': 2}
+  $100 TRAIN n=29 win%=17 roi=-22.5% med=-33.0% roi_ex_top1%=-23.0% exits={'time': 10, 'stop': 16, 'end': 3}
+       TEST  n=41 win%=27 roi=-9.3% med=-13.4% roi_ex_top1%=-11.1% exits={'stop': 14, 'time': 19, 'end': 6, 'trail': 2}
+  $250 TRAIN n=29 win%=17 roi=-21.4% med=-31.9% roi_ex_top1%=-22.0% exits={'time': 10, 'stop': 16, 'end': 3}
+       TEST  n=41 win%=27 roi=-8.2% med=-12.3% roi_ex_top1%=-10.1% exits={'stop': 14, 'time': 19, 'end': 6, 'trail': 2}
+## tws60s_20-80k_age>3h | exits=wide
+  $25  TRAIN n=15 win%=7 roi=-15.1% med=-14.6% roi_ex_top1%=-15.2% exits={'time': 11, 'end': 1, 'stop': 3}
+       TEST  n=30 win%=10 roi=-12.7% med=-9.6% roi_ex_top1%=-13.3% exits={'stop': 7, 'time': 20, 'trail': 2, 'end': 1}
+  $100 TRAIN n=15 win%=7 roi=-13.3% med=-12.9% roi_ex_top1%=-13.7% exits={'time': 11, 'end': 1, 'stop': 3}
+       TEST  n=30 win%=10 roi=-10.9% med=-7.7% roi_ex_top1%=-11.5% exits={'stop': 7, 'time': 20, 'trail': 2, 'end': 1}
+  $250 TRAIN n=15 win%=7 roi=-12.4% med=-11.9% roi_ex_top1%=-12.7% exits={'time': 11, 'end': 1, 'stop': 3}
+       TEST  n=30 win%=10 roi=-9.9% med=-6.8% roi_ex_top1%=-10.6% exits={'stop': 7, 'time': 20, 'trail': 2, 'end': 1}
+## tws60s_20-80k_age>3h | exits=tight
+  $25  TRAIN n=15 win%=13 roi=-10.9% med=-13.7% roi_ex_top1%=-11.3% exits={'stop': 7, 'time': 7, 'trail': 1}
+       TEST  n=30 win%=13 roi=-8.9% med=-9.2% roi_ex_top1%=-9.4% exits={'stop': 7, 'time': 21, 'trail': 2}
+  $100 TRAIN n=15 win%=13 roi=-9.0% med=-11.9% roi_ex_top1%=-9.6% exits={'stop': 7, 'time': 7, 'trail': 1}
+       TEST  n=30 win%=17 roi=-7.0% med=-7.3% roi_ex_top1%=-7.6% exits={'stop': 7, 'time': 21, 'trail': 2}
+  $250 TRAIN n=15 win%=13 roi=-8.0% med=-10.9% roi_ex_top1%=-8.7% exits={'stop': 7, 'time': 7, 'trail': 1}
+       TEST  n=30 win%=20 roi=-6.0% med=-6.4% roi_ex_top1%=-6.6% exits={'stop': 7, 'time': 21, 'trail': 2}
+## tws60s_20-80k_age>3h | exits=runner
+  $25  TRAIN n=15 win%=7 roi=-24.9% med=-34.7% roi_ex_top1%=-25.2% exits={'time': 4, 'end': 2, 'stop': 9}
+       TEST  n=30 win%=23 roi=-9.7% med=-13.2% roi_ex_top1%=-12.0% exits={'stop': 10, 'time': 15, 'end': 3, 'trail': 2}
+  $100 TRAIN n=15 win%=20 roi=-23.5% med=-33.5% roi_ex_top1%=-23.9% exits={'time': 4, 'end': 2, 'stop': 9}
+       TEST  n=30 win%=30 roi=-7.8% med=-11.4% roi_ex_top1%=-10.3% exits={'stop': 10, 'time': 15, 'end': 3, 'trail': 2}
+  $250 TRAIN n=15 win%=20 roi=-22.5% med=-32.5% roi_ex_top1%=-23.0% exits={'time': 4, 'end': 2, 'stop': 9}
+       TEST  n=30 win%=30 roi=-6.9% med=-10.4% roi_ex_top1%=-9.4% exits={'stop': 10, 'time': 15, 'end': 3, 'trail': 2}
+## grad_45k_flow500 | exits=wide
+  $25  TRAIN n=12 win%=17 roi=-17.6% med=-25.0% roi_ex_top1%=-18.5% exits={'time': 4, 'stop': 8}
+       TEST  n=16 win%=31 roi=-6.1% med=-14.7% roi_ex_top1%=-9.6% exits={'end': 1, 'stop': 8, 'time': 6, 'trail': 1}
+  $100 TRAIN n=12 win%=17 roi=-15.9% med=-23.6% roi_ex_top1%=-17.0% exits={'time': 4, 'stop': 8}
+       TEST  n=16 win%=31 roi=-4.2% med=-12.9% roi_ex_top1%=-7.9% exits={'end': 1, 'stop': 8, 'time': 6, 'trail': 1}
+  $250 TRAIN n=12 win%=17 roi=-14.9% med=-22.5% roi_ex_top1%=-16.1% exits={'time': 4, 'stop': 8}
+       TEST  n=16 win%=31 roi=-3.0% med=-12.0% roi_ex_top1%=-6.8% exits={'end': 1, 'stop': 8, 'time': 6, 'trail': 1}
+## grad_45k_flow500 | exits=tight
+  $25  TRAIN n=12 win%=42 roi=-5.3% med=-15.6% roi_ex_top1%=-6.6% exits={'time': 2, 'stop': 7, 'trail': 3}
+       TEST  n=16 win%=31 roi=-7.3% med=-15.9% roi_ex_top1%=-10.8% exits={'trail': 4, 'stop': 10, 'time': 2}
+  $100 TRAIN n=12 win%=42 roi=-3.5% med=-13.8% roi_ex_top1%=-4.9% exits={'time': 2, 'stop': 7, 'trail': 3}
+       TEST  n=16 win%=38 roi=-5.5% med=-14.2% roi_ex_top1%=-9.1% exits={'trail': 4, 'stop': 10, 'time': 2}
+  $250 TRAIN n=12 win%=42 roi=-2.0% med=-12.9% roi_ex_top1%=-3.7% exits={'time': 2, 'stop': 7, 'trail': 3}
+       TEST  n=16 win%=38 roi=-4.1% med=-13.2% roi_ex_top1%=-7.9% exits={'trail': 4, 'stop': 10, 'time': 2}
+## grad_45k_flow500 | exits=runner
+  $25  TRAIN n=12 win%=0 roi=-31.0% med=-36.3% roi_ex_top1%=-30.0% exits={'stop': 8, 'end': 2, 'time': 2}
+       TEST  n=16 win%=38 roi=-5.3% med=-29.7% roi_ex_top1%=-10.0% exits={'end': 3, 'stop': 8, 'time': 4, 'trail': 1}
+  $100 TRAIN n=12 win%=0 roi=-29.7% med=-35.2% roi_ex_top1%=-28.9% exits={'stop': 8, 'end': 2, 'time': 2}
+       TEST  n=16 win%=38 roi=-3.4% med=-28.4% roi_ex_top1%=-8.3% exits={'end': 3, 'stop': 8, 'time': 4, 'trail': 1}
+  $250 TRAIN n=12 win%=0 roi=-28.7% med=-34.2% roi_ex_top1%=-28.0% exits={'stop': 8, 'end': 2, 'time': 2}
+       TEST  n=16 win%=38 roi=-2.3% med=-27.4% roi_ex_top1%=-7.4% exits={'end': 3, 'stop': 8, 'time': 4, 'trail': 1}
+## grad_55k_flow1000 | exits=wide
+  $25  TRAIN n=7 (too few)
+       TEST  n=12 win%=25 roi=-14.6% med=-17.8% roi_ex_top1%=-16.4% exits={'end': 1, 'stop': 4, 'trail': 2, 'time': 5}
+  $100 TRAIN n=7 (too few)
+       TEST  n=12 win%=25 roi=-13.0% med=-16.2% roi_ex_top1%=-14.9% exits={'end': 1, 'stop': 4, 'trail': 2, 'time': 5}
+  $250 TRAIN n=7 (too few)
+       TEST  n=12 win%=25 roi=-11.9% med=-15.2% roi_ex_top1%=-14.0% exits={'end': 1, 'stop': 4, 'trail': 2, 'time': 5}
+## grad_55k_flow1000 | exits=tight
+  $25  TRAIN n=7 (too few)
+       TEST  n=12 win%=17 roi=-13.9% med=-15.4% roi_ex_top1%=-14.8% exits={'stop': 8, 'time': 2, 'trail': 2}
+  $100 TRAIN n=7 (too few)
+       TEST  n=12 win%=17 roi=-12.3% med=-13.7% roi_ex_top1%=-13.3% exits={'stop': 8, 'time': 2, 'trail': 2}
+  $250 TRAIN n=7 (too few)
+       TEST  n=12 win%=17 roi=-11.2% med=-12.7% roi_ex_top1%=-12.4% exits={'stop': 8, 'time': 2, 'trail': 2}
+## grad_55k_flow1000 | exits=runner
+  $25  TRAIN n=7 (too few)
+       TEST  n=12 win%=33 roi=-15.8% med=-34.9% roi_ex_top1%=-18.6% exits={'end': 3, 'stop': 7, 'time': 2}
+  $100 TRAIN n=7 (too few)
+       TEST  n=12 win%=33 roi=-14.2% med=-33.7% roi_ex_top1%=-17.2% exits={'end': 3, 'stop': 7, 'time': 2}
+  $250 TRAIN n=7 (too few)
+       TEST  n=12 win%=33 roi=-13.3% med=-32.7% roi_ex_top1%=-16.4% exits={'end': 3, 'stop': 7, 'time': 2}
