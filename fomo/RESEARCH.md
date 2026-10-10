@@ -63,6 +63,28 @@ Lesson: weak leaders and tiny leader buys are noise. Live filters now require:
 - positive net buying over the last 5 minutes, with 20 or more buyers
 - price no more than 15% above the trigger
 
+## Copy model v2: robustness check (each half of the coins reported separately)
+Run with `copy2.py`. ROI per trade after costs at $100 with a 15-second delay. A rule only counts if it is positive on **both** halves.
+
+| Variant | Half A | Half B |
+|---|---|---|
+| Baseline v1 (any half-A-profitable wallet, mirror exit, 30% stop) | +6.0% | −1.8% |
+| Dev has not sold | +7.0% | −0.9% |
+| 20% stop | +6.0% | −1.1% |
+| Size $250 | +6.5% | −1.0% |
+| Leader buy ≥ $100 | −3.8% | −5.4% |
+| Leader has 5–30 coins | −3.9% | −5.6% |
+| Coin age ≥ 30 min | −1.7% | −3.4% |
+| 20+ buyers in last 5 min | −6.8% | −8.9% |
+| Sell half at +30% or +50% | −1.7% | −3.9% / −1.9% |
+| Trailing stop 25% | −4.2% | −4.0% |
+
+Conclusions:
+- **No variant is positive on both halves yet.** The v1 edge depends on a few big runners, and about 130 trades are too few to tell edge from luck.
+- The "strict" live filters added after the GEPE loss were not supported by the data, so they were reverted.
+- Cutting winners early (scale-outs, trailing stops) hurts. The profit comes from tail runners.
+- Live signals are **paper only** until the expanded dataset confirms an edge.
+
 ## Open work
 - Re-test the copy rule on full coin histories (the re-download was paused when pump.fun rate-limited it).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.

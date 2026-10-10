@@ -22,7 +22,7 @@ def trades(mint,maxpages=30):
         cur=d["pagination"]["nextCursor"]
     return mint,out
 res={}
-with cf.ThreadPoolExecutor(10) as ex:
+with cf.ThreadPoolExecutor(3) as ex:
     for i,(m,t) in enumerate(ex.map(trades,cand)):
         res[m]=t
         if i%250==0: print(i,len(cand),flush=True)

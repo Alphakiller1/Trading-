@@ -8,7 +8,7 @@ acc=collections.defaultdict(lambda:[0,0.0,0.0,0,[]])
 for p in pos:
     if p["dev"] or p["max_buy"]>1000: continue
     a=acc[p["w"]]; a[0]+=1; a[1]+=p["pnl"]; a[2]+=p["buy_usd"]; a[3]+=p["pnl"]>0; a[4].append(p["hold"])
-smart={w:(a[1]/a[2],a[0],a[3]/a[0]) for w,a in acc.items() if 5<=a[0]<=30 and a[2]>0 and a[1]/a[2]>=0.15 and a[3]/a[0]>=0.4 and st.median(a[4])>=20}
+smart={w:(a[1]/a[2],a[0],a[3]/a[0]) for w,a in acc.items() if a[0]>=3 and a[2]>0 and a[1]/a[2]>0 and st.median(a[4])>=20}
 
 def sec(s): return dt.datetime.fromisoformat(s.replace("Z","+00:00")).timestamp()
 def get(u,p):
@@ -50,7 +50,7 @@ def check(c):
     b=sum(float(t["amountUsd"] or 0) for t in last5 if t["type"]=="buy"); s=sum(float(t["amountUsd"] or 0) for t in last5 if t["type"]=="sell")
     buyers=len({t["userAddress"] for t in last5 if t["type"]=="buy"})
     cur_mc=float(tr[-1]['priceUsd'])*1e9
-    if devsold or cur_mc>hits[0][3]*1.15 or b-s<=0 or buyers<20 or (now-c['created_timestamp']/1000)<1800 or hits[0][2]<100: return None
+    if devsold or cur_mc>hits[0][3]*1.15 or False: return None
     return dict(trig_mc=round(hits[0][3]),cur_mc=round(cur_mc),mint=m,sym=c.get("symbol"),name=c.get("name"),mc=mc,age_h=(now-c["created_timestamp"]/1000)/3600,devsold=devsold,
                 hits=[(w[:6],round(smart[w][0]*100),smart[w][1],round(now-t),round(u),round(mcx)) for w,t,u,mcx in hits],
                 holding=len(hold),buy5=round(b),sell5=round(s),buyers5=buyers,complete=c.get("complete"),
@@ -58,4 +58,4 @@ def check(c):
 with cf.ThreadPoolExecutor(10) as ex: res=[r for r in ex.map(check,coins.values()) if r]
 res.sort(key=lambda r:(-r["holding"],r["devsold"],-(r["buy5"]-r["sell5"])))
 json.dump(res,open("live_candidates.json","w"),indent=1)
-for r in res[:5]: print(time.strftime('%H:%M:%S'),'SIGNAL',r['sym'],r['mint'],'trigger_mc',r['trig_mc'],'now_mc',r['cur_mc'],'age_h',round(r['age_h'],2),'buyers5',r['buyers5'],'net5',r['buy5']-r['sell5'],'leader',r['hits'][0],flush=True)
+for r in res[:5]: print(time.strftime('%H:%M:%S'),'PAPER-SIGNAL',r['sym'],r['mint'],'trigger_mc',r['trig_mc'],'now_mc',r['cur_mc'],'age_h',round(r['age_h'],2),'buyers5',r['buyers5'],'net5',r['buy5']-r['sell5'],'leader',r['hits'][0],flush=True)
