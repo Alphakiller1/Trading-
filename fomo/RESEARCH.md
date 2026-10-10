@@ -132,6 +132,34 @@ Coins launched 1–72h ago, how often each type reached a given peak market cap.
 - TRUMP and PUMP (live, same leader `9CtjtC…`) both rugged about 99% within 15 seconds of the signal.
 - Leaders whose copied signal loses 80% or more are added to `blacklist.txt` automatically and never copied again.
 
+## Unbiased launch cohort (live logger, first 30 min of every launch)
+Source: `logger.py` and `cohort.py`. 225 launches with trade data.
+- Reached $10k within 30 minutes: 3.9%. Reached $30k: 0.8%.
+- Early buyer concentration, top-3 wallets' share of early buys:
+  - 0–40%: 42.9% reached $10k
+  - 40–60%: 11.5%
+  - 80% or more: 5.8% (76% of all launches fall here)
+- 40+ buyers in the first minute: 30.8% reached $10k, against 5.1% for 0–5 buyers.
+
+## Early-quality-launch entry: fails
+Source: `early_quality.py`. Rule: buy at 60–120 seconds if many buyers, low concentration and the dev hasn't sold.
+- Result: **−19% to −26% per trade at $20**, worse than a random entry at 70 seconds (−7%).
+- By the time the quality is visible, the price has already run. A signal can predict a high peak and still be unprofitable to buy.
+
+## Copy + bundle filter, trade by trade ($20 each)
+- 23 trades: **+$125.58 total**, 8 wins, median −$1.00.
+- SPROUT (+457%) and HOTDOG (+228%) carry the result: +7.8% per trade without the best trade, **−2.7% without the best two**.
+- Latency:
+
+  | Delay | ROI per trade | Half B |
+  |---|---|---|
+  | 5s | +29.8% | positive |
+  | 30s | +28.7% | positive |
+  | 60s | +17.5% | −11% |
+  | 90s | +19.5% | −5% |
+
+- **Profile: lottery-like.** Many small losses and rare 3–5× runners. It needs many small trades, fast execution (≤ 30s) and no early profit-taking. It is not low-risk.
+
 ## Open work
 - Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.

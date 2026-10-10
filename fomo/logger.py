@@ -8,10 +8,11 @@ S=requests.Session(); S.headers.update(H)
 OUT="live"; os.makedirs(OUT,exist_ok=True)
 pending={}   # mint -> created ts
 def get(u,p):
-    for i in range(3):
+    for i in range(6):
         try:
             r=S.get(u,params=p,timeout=15)
             if r.ok: return r.json()
+            if r.status_code==429: time.sleep(5*(i+1)); continue
         except Exception: pass
         time.sleep(1+i)
 def tape(m,maxpages=20):
@@ -39,6 +40,7 @@ while True:
         c=pending.pop(m)
         try:
             tr=tape(m)
+            if not tr: pending[m]=c; continue      # fetch failed (rate limit) -> retry next cycle
             open(f"{OUT}/coins.jsonl","a").write(json.dumps(dict(coin={k:c.get(k) for k in ("mint","creator","created_timestamp","name","symbol","twitter","telegram","website")},trades=tr))+"\n")
         except Exception as e: print("err",m,e,flush=True)
     print(time.strftime("%H:%M:%S"),"pending",len(pending),"saved",len(due),flush=True)
