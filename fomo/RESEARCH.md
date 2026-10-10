@@ -110,6 +110,28 @@ Caveat: n = 23, with only 10 trades in half B. Promising, but not proven. The ru
 | TRUMP | −85% | Rug within 24 seconds; leader 9CtjtC also triggered PUMP (coordinated) |
 | PUMP | −3% (stop flash) | Same leader as TRUMP |
 
+## Social / narrative layer
+X (Twitter) can't be read from this environment: it requires a login and no API key is available. Sources used instead: pump.fun coin metadata (twitter, website and telegram links), DexScreener's public API (paid profiles, boosts) and web search.
+
+Coins launched 1–72h ago, how often each type reached a given peak market cap. Survivor-biased sample, so compare the rows rather than trusting the absolute numbers.
+
+| Social type | → $30k | → $100k | → $200k |
+|---|---|---|---|
+| Website/Telegram | 37.9% | 32.2% | 27.6% |
+| X profile | 25.6% | 16.1% | 12.7% |
+| Linked to a tweet (news/event coin) | 16.2% | 8.2% | 4.5% |
+| No socials | 10.7% | 8.0% | 6.8% |
+| **Paid DexScreener profile** | 84.3% | 54.1% | 33.1% |
+| DexScreener pair, no profile | 8.2% | 4.9% | 4.3% |
+
+- News/event coins underperform as a group. Many copycats launch on the same tweet and split attention, so the edge is picking the leading coin for an event, not event coins in general.
+- **The DexScreener profile result has look-ahead bias.** Devs often buy the profile after the coin pumps. The live scanner now records profile and boost status **at signal time**, so this can be tested honestly from paper trades.
+- Copy trades by social type: tweet-linked −11% and X-profile +18% after removing the top 2% of winners. Each group has only 8–21 trades, so this is a hint, not a rule.
+
+## Rug protection
+- TRUMP and PUMP (live, same leader `9CtjtC…`) both rugged about 99% within 15 seconds of the signal.
+- Leaders whose copied signal loses 80% or more are added to `blacklist.txt` automatically and never copied again.
+
 ## Open work
 - Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.

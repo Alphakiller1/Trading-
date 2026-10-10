@@ -50,7 +50,9 @@ def track(sig):
     time.sleep(LAT if why!="stop" else 0)
     tr=latest(m,1); ex=float(tr[0]["priceUsd"])*1e9 if tr else ex
     row=[sig["t"],sig["sym"],m,leader,sig["trig"],round(entry),round(ex),why,round((time.time()-t0)/60,1),round((ex/entry-1)*100,1),pnl(25,entry,ex),pnl(100,entry,ex),pnl(250,entry,ex)]
-    with lock: csv.writer(open(LOG,"a")).writerow(row)
+    with lock:
+        csv.writer(open(LOG,"a")).writerow(row)
+        if row[9]<=-80 and leader: open("blacklist.txt","a").write(leader+"\n")   # leader's signal was a rug -> never copy again
     print(f"[paper] {sig['sym']} closed: {why}, {row[9]:+.1f}% in {row[8]} min | $100 trade: {row[11]:+.2f}",flush=True)
 pat=re.compile(r"PAPER-SIGNAL (\S+) (\S+) trigger_mc (\d+) now_mc (\d+) .* leader \('(\w+)'")
 while True:
@@ -62,6 +64,7 @@ while True:
         sym,m,trig,now,lead=mt.groups()
         if m in seen: continue
         seen.add(m)
-        print(f"[paper] OPEN {sym} {m} trigger {int(trig):,} now {int(now):,} leader {lead}",flush=True)
+        extra=l.split("'conc'",1)[1] if "'conc'" in l else ""
+        print(f"[paper] OPEN {sym} {m} trigger {int(trig):,} now {int(now):,} leader {lead} | conc{extra}",flush=True)
         threading.Thread(target=track,args=(dict(t=time.strftime("%H:%M:%S"),sym=sym,mint=m,trig=int(trig),leader=lead),),daemon=True).start()
     time.sleep(20)
