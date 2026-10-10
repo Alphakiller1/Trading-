@@ -85,6 +85,31 @@ Conclusions:
 - Cutting winners early (scale-outs, trailing stops) hurts. The profit comes from tail runners.
 - Live signals are **paper only** until the expanded dataset confirms an edge.
 
+## Copy model v3: bundle filter (first rule positive on both halves)
+Run with `copy3.py`. **Bundle filter:** skip the coin if the top 3 wallets account for more than 60% of buy USD in its first 30 trades (a sniped or bundled launch).
+
+Coins with complete trade histories only (618 of 812). ROI per trade after costs, 15-second delay:
+
+| Rule | All | Half A | Half B | Without top 2% | n |
+|---|---|---|---|---|---|
+| Copy baseline | +8.3% | +19.9% | −3.8% | −0.5% | 51 |
+| Early top-3 ≤ 70% | +10.8% | +25.6% | −5.7% | −1.1% | 38 |
+| Early top-3 ≤ 60% | +19.3% | +33.9% | −1.4% | +3.8% | 29 |
+| **Early top-3 ≤ 60% + dev not sold** | **+29.0%** | **+47.9%** | **+4.3%** | **+9.4%** | 23 |
+| Same, $20 size | +27.3% | +46.5% | +2.3% | +7.4% | 23 |
+| Same, 30-second delay | +30.7% | +50.3% | +5.2% | +14.9% | 23 |
+
+Leader holding-time filters (median hold ≥ 60s up to ≥ 30 min) did **not** help.
+
+Caveat: n = 23, with only 10 trades in half B. Promising, but not proven. The rule is now in the live scanner and paper trader (`paper.py`) to collect out-of-sample evidence.
+
+## Paper trades (live, before the bundle filter)
+| Coin | Result | Note |
+|---|---|---|
+| ZZZ | −38% | Leader sold within 30 seconds |
+| TRUMP | −85% | Rug within 24 seconds; leader 9CtjtC also triggered PUMP (coordinated) |
+| PUMP | −3% (stop flash) | Same leader as TRUMP |
+
 ## Open work
 - Re-test the copy rule on full coin histories (the re-download was paused when pump.fun rate-limited it).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.

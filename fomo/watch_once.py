@@ -24,18 +24,26 @@ def check(c):
     m=c["mint"]; mc=c.get("usd_market_cap") or 0
     if not (8000<=mc<=80000): return None
     tr=[]; cur=None
-    for _ in range(3):
+    full=False
+    for _ in range(15):
         p=dict(limit=100,program="pump",chainId=CH)
         if cur: p["cursor"]=cur
         d=get(f"https://swap-api.pump.fun/v2/coins/{m}/trades",p)
         if not d: break
         tr+=d["trades"]
-        if not d["pagination"]["hasMore"]: break
+        if not d["pagination"]["hasMore"]: full=True; break
         cur=d["pagination"]["nextCursor"]
+    if not full: return None   # can't verify this is the FIRST smart buy
     if not tr: return None
     tr=sorted([t for t in tr if t.get("priceUsd")],key=lambda t:t["slotIndexId"])
     creator=c.get("creator")
     devsold=any(t["userAddress"]==creator and t["type"]=="sell" for t in tr)
+    # bundle filter: top-3 wallets' share of buy USD in the first 30 trades must be <= 60%
+    eb=collections.Counter()
+    for t in tr[:30]:
+        if t["type"]=="buy": eb[t["userAddress"]]+=float(t["amountUsd"] or 0)
+    tot=sum(eb.values()); conc=sum(v for _,v in eb.most_common(3))/tot if tot else 1
+    if conc>0.60 or devsold: return None
     hits=[]
     seen=set()
     for t in tr:
@@ -50,12 +58,12 @@ def check(c):
     b=sum(float(t["amountUsd"] or 0) for t in last5 if t["type"]=="buy"); s=sum(float(t["amountUsd"] or 0) for t in last5 if t["type"]=="sell")
     buyers=len({t["userAddress"] for t in last5 if t["type"]=="buy"})
     cur_mc=float(tr[-1]['priceUsd'])*1e9
-    if devsold or cur_mc>hits[0][3]*1.15 or False: return None
-    return dict(trig_mc=round(hits[0][3]),cur_mc=round(cur_mc),mint=m,sym=c.get("symbol"),name=c.get("name"),mc=mc,age_h=(now-c["created_timestamp"]/1000)/3600,devsold=devsold,
+    if devsold or cur_mc>hits[0][3]*1.15 or cur_mc<hits[0][3]*0.85 or False: return None
+    return dict(conc=round(conc,2),trig_mc=round(hits[0][3]),cur_mc=round(cur_mc),mint=m,sym=c.get("symbol"),name=c.get("name"),mc=mc,age_h=(now-c["created_timestamp"]/1000)/3600,devsold=devsold,
                 hits=[(w[:6],round(smart[w][0]*100),smart[w][1],round(now-t),round(u),round(mcx)) for w,t,u,mcx in hits],
                 holding=len(hold),buy5=round(b),sell5=round(s),buyers5=buyers,complete=c.get("complete"),
                 twitter=bool(c.get("twitter")),price=float(tr[-1]["priceUsd"]))
 with cf.ThreadPoolExecutor(10) as ex: res=[r for r in ex.map(check,coins.values()) if r]
 res.sort(key=lambda r:(-r["holding"],r["devsold"],-(r["buy5"]-r["sell5"])))
 json.dump(res,open("live_candidates.json","w"),indent=1)
-for r in res[:5]: print(time.strftime('%H:%M:%S'),'PAPER-SIGNAL',r['sym'],r['mint'],'trigger_mc',r['trig_mc'],'now_mc',r['cur_mc'],'age_h',round(r['age_h'],2),'buyers5',r['buyers5'],'net5',r['buy5']-r['sell5'],'leader',r['hits'][0],flush=True)
+for r in res[:5]: print(time.strftime('%H:%M:%S'),'PAPER-SIGNAL',r['sym'],r['mint'],'trigger_mc',r['trig_mc'],'now_mc',r['cur_mc'],'age_h',round(r['age_h'],2),'buyers5',r['buyers5'],'net5',r['buy5']-r['sell5'],'leader',r['hits'][0],'conc',r['conc'],flush=True)
