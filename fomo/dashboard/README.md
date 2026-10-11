@@ -50,6 +50,20 @@ Signals show recent X mentions, searched in a headless Edge with your own X sess
 
 The cookies are saved to `data/x_cookies.json`, which is gitignored. Searches are read-only, at most 1 every 15 seconds, and cached for 5 minutes. Scraping is against X's terms and can limit the account it runs on.
 
+## fomo chart setup
+
+The chart levels in the fomo app match the model's market-cap buckets: **$10k** (best copy entries below), **$25k** (the edge fades above), **$45k** (pump.fun graduation at ~411 SOL), **$80k** (your max).
+
+- **Settings fomo keeps per browser:**
+  - MCap mode
+  - 1-minute candles
+  - **VWAP** indicator
+  - Chart overlays: My swaps and Thesis on; Following only off until you follow leaders; **Min size: All**, so sub-$1k leader buys show as bubbles
+  - Discovery panel on **Bonding**
+- **Level lines on every coin:** fomo saves drawings per coin, so the lines need re-adding on each one.
+  - **Automatic:** install [Tampermonkey](https://www.tampermonkey.net/) in Chrome, create a new script, and paste `tools/fomo_chart_levels.user.js`. It adds the lines and VWAP whenever a coin is missing them, only in MCap mode. It never touches Buy/Sell.
+  - **One click per coin:** make a bookmark and paste the contents of `tools/fomo_chart_levels.bookmarklet.txt` as its URL.
+
 ## Data
 
 Everything runtime lives in `data/`, which is gitignored: settings, `fomo.db` (SQLite), the Edge profile, and X cookies. Delete `fomo.db` to start fresh.
