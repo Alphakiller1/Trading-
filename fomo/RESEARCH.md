@@ -293,7 +293,17 @@ Data: 67 callers, 3,880 calls with outcomes at least 24h old. A caller's record 
 | Callers with 5+ prior calls and prior 2× rate < 20% | 184 | 26.6% | −27.5% |
 
 - **Caller skill persists**: 44% against 27% hit 2×, consistent in earlier and later data.
-- "Hold if 2× isn't hit" loses because the misses bleed toward zero. The open question is whether a −30% stop triggers before the 2× run. `callout_paths.py` rebuilds each call's price path from the trade tape to test that properly. Results pending.
+- "Hold if 2× isn't hit" loses because the misses bleed toward zero.
+- **Simulated on real price paths** (`callout_paths.py`, preliminary: 34 recent calls, 28 from good callers):
+
+  | Rule | Avg per trade | Win rate |
+  |---|---|---|
+  | Entry 30s after the call, stop −30%, take profit 2× | −30% | 3–4% |
+  | Entry 120s after the call | −16% to −19% | 9–11% |
+  | Best variant: stop −20%, take profit 1.5× | −4.6% (later half −7.0%) | |
+
+  After a call, the price usually **dips more than 20–30% before any run**. Followers pile in, then sell. Good callers' coins do reach 2× more often, but only for holders who sit through deep drawdowns, and on average those holders still lose.
+- **Conclusion: callouts carry information about eventual peaks, but no tradable edge at app speed after costs.**
 
 ## Open work
 - (superseded by the walk-forward result) Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
