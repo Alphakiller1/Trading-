@@ -217,3 +217,14 @@ nav a.on i { color: var(--p2); }
   nav { flex-direction: row; flex-wrap: wrap; } nav a span { display: none; } .health { display: none; }
   .main { padding: 0 16px 30px; } .kpis { grid-template-columns: 1fr 1fr; } .evidence, .form { grid-template-columns: 1fr; }
 }
+
+/* engine offline overlay (GitHub Pages without the local engine running) */
+.offline { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; padding: 16px;
+  background: radial-gradient(800px 500px at 50% 30%, rgba(139, 92, 246, .16), transparent 60%), rgba(5, 4, 7, .94); }
+.offline.on { display: grid; }
+.offline-box { width: min(520px, 100%); background: var(--panel); border: 1px solid var(--line2); border-radius: 18px; padding: 26px;
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, .18), 0 30px 80px -20px #000; }
+.offline-box h3 { font: 600 20px var(--f-head); margin: 14px 0 8px; }
+.offline-box p, .offline-box li { color: var(--muted); font-size: 13.5px; }
+.offline-box ol { padding-left: 20px; display: grid; gap: 6px; }
+.offline-box .brand-mark { display: block; }

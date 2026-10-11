@@ -3,8 +3,10 @@
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Served by the local engine: same origin. Served from GitHub Pages: talk to the engine on this PC.
+const BASE = /github\.io$/.test(location.hostname) ? "http://127.0.0.1:8777" : "";
 const api = async (path, body) => {
-  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const r = await fetch(BASE + path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
@@ -64,7 +66,8 @@ $("#bell").onclick = () => go("command");
 // ---------- state / top bar ----------
 let S = null;
 async function loadState() {
-  try { S = await api("/api/state"); } catch { return; }
+  try { S = await api("/api/state"); $("#offline").classList.remove("on"); }
+  catch { $("#offline").classList.add("on"); return; }
   $("#clock").textContent = S.et;
   const w = S.window;
   const we = $("#window");

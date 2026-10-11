@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238b5cf6'/%3E%3Cpath d='M10 22V10h12M10 16h8' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="static/app.css">
 </head>
 <body>
 <div class="shell">
@@ -152,7 +152,14 @@
 </div>
 
 <div class="modal" id="modal"><div class="modal-box" id="modal-box"></div></div>
+<div class="offline" id="offline"><div class="offline-box">
+  <span class="brand-mark"></span>
+  <h3>Your engine is offline</h3>
+  <p>This page is the interface. The engine that watches wallets, scores signals and holds your trade log runs on your PC, so your data never leaves it.</p>
+  <ol><li>Double-click <b>fomo/dashboard/run_dashboard.bat</b> (or run <span class="mono">python server.py</span>).</li>
+  <li>If the browser asks to let this site reach devices on your local network, click <b>Allow</b>.</li></ol>
+  <p class="dim">Reconnecting automatically…</p></div></div>
 <div class="toasts" id="toasts"></div>
-<script src="/static/app.js"></script>
+<script src="static/app.js"></script>
 </body>
 </html>

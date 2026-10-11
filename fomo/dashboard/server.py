@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core import config, store, pump, chain, intel, social, leaders, engine  # noqa: E402
 
 PORT = int(os.environ.get("FOMO_DASH_PORT", "8777"))
+# The hosted interface on GitHub Pages may call this local engine; nothing else may (CORS).
+ALLOWED_ORIGINS = {"https://alphakiller1.github.io"}
 STATIC = os.path.join(config.ROOT, "static")
 _me_cache = {"t": 0, "data": None}
 
@@ -172,9 +174,25 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
+    def _cors(self):
+        o = self.headers.get("Origin")
+        if o in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", o)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors()
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.end_headers()
+
     def _json(self, obj, code=200):
         b = json.dumps(obj, default=str).encode()
         self.send_response(code)
+        self._cors()
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(b)))

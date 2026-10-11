@@ -4,6 +4,8 @@ A local dashboard for the small-leader follow strategy in [`../SMALL_TRADERS.md`
 
 **Start:** double-click `run_dashboard.bat`, or run `python server.py` and open http://127.0.0.1:8777.
 
+**Hosted interface:** https://alphakiller1.github.io/Trading-/ shows the same dashboard and connects to the engine on your PC. Your data never leaves your machine; the page shows "engine offline" until `server.py` is running. If the browser asks to let the site reach devices on your local network, click Allow.
+
 ## What each view does
 
 | View | What it does |
@@ -41,7 +43,7 @@ A local dashboard for the small-leader follow strategy in [`../SMALL_TRADERS.md`
 
 ## X (Twitter)
 
-Signals show recent X mentions through `twikit`, using your own session cookies:
+Signals show recent X mentions, searched in a headless Edge with your own X session (library clients like twikit broke when X changed its request signing):
 1. In your normal Edge, open x.com and press F12.
 2. Go to Application → Cookies → https://x.com.
 3. Copy `auth_token` and `ct0` into Settings.
