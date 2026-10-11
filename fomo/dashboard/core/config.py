@@ -24,7 +24,8 @@ DEFAULTS = {
     "auto_paper": True,             # open a paper trade on every GO signal
     # data
     "rpc_url": "https://api.mainnet-beta.solana.com",
-    "poll_leaders_s": 20,
+    "poll_leaders_s": 5,
+    "min_leader_median_usd": 40,    # only watch leaders who trade at size: every positive-EV signal came from $54+ medians
     "poll_positions_s": 15,
     # alerts
     "discord_webhook": "",

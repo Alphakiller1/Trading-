@@ -77,6 +77,9 @@ async function loadState() {
     we.textContent = `${good ? "Prime window" : bad ? "Weak window" : "Average window"} · ${w.per1k.toFixed(1)} grads / 1k launches`;
   }
   $("#sol").textContent = "SOL " + usd(S.sol, 2);
+  const mo = $("#mood"), mk = S.market;
+  mo.textContent = mk ? "Market " + mk.mood : "Market scanning…";
+  mo.className = "pill " + (mk ? ({ Hot: "armed", Cold: "killed" }[mk.mood] || "") : "");
   const rr = S.risk.real, rp = S.risk.paper;
   const k = $("#kill");
   if (rr.killed || rp.killed) { k.className = "pill killed"; k.textContent = `KILL SWITCH · ${rr.killed ? "real" : "paper"}`; k.title = [...rr.reasons, ...rp.reasons].join("; "); }
@@ -212,7 +215,7 @@ async function loadTrades() {
     : `<div class="empty" style="grid-column:1/-1">No closed ${tmode} trades yet. ${tmode === "real" ? "Add your fomo wallet in Settings and your trades log themselves." : "Paper trades open automatically on GO signals."}</div>`;
   drawCurve(st.curve || []);
   const rows = d.rows;
-  $("#trade-tbl").innerHTML = `<tr><th>Opened</th><th>Coin</th><th>Leader</th><th class="num">Size</th><th class="num">Entry mcap</th><th class="num">Exit / now</th><th class="num">P&amp;L</th><th class="num">ROI</th><th>Exit reason</th><th>Notes</th><th></th></tr>` +
+  $("#trade-tbl").innerHTML = `<tr><th>Opened</th><th>Coin</th><th>Leader</th><th class="num">Size</th><th class="num">Entry mcap</th><th class="num">Exit / now</th><th class="num">P&amp;L</th><th class="num">ROI</th><th>Exit reason</th><th>Coach</th><th>Notes</th><th></th></tr>` +
     (rows.length ? rows.map((t) => {
       const pnl = t.status === "open" ? t.upnl : t.pnl_usd;
       return `<tr><td class="mono">${new Date(t.opened_at * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
@@ -221,10 +224,18 @@ async function loadTrades() {
       <td class="num">${usd(t.size_usd, 0)}</td><td class="num">${kfmt(t.entry_mcap)}</td><td class="num">${kfmt(t.status === "open" ? t.last_mcap : t.exit_mcap)}</td>
       <td class="num ${cls(pnl)}">${sgn(pnl)}</td><td class="num ${cls(pnl)}">${t.size_usd ? pct(pnl / t.size_usd) : "—"}</td>
       <td>${t.status === "open" ? '<span class="chip GO">OPEN</span>' : esc(t.exit_reason || "")}</td>
+      <td>${coachChip(t)}</td>
       <td><input data-note="${t.id}" value="${esc(t.notes || "")}" placeholder="Why?" style="padding:5px 8px;width:180px"></td>
       <td>${t.status === "open" ? `<button class="btn ghost sm" data-close="${t.id}" data-mode="${t.mode}">Close</button>` : ""}</td></tr>`;
-    }).join("") : `<tr><td colspan="11" class="dim" style="text-align:center;padding:26px">No ${tmode} trades yet.</td></tr>`);
+    }).join("") : `<tr><td colspan="12" class="dim" style="text-align:center;padding:26px">No ${tmode} trades yet.</td></tr>`);
   $$("[data-note]").forEach((i) => i.onchange = () => api("/api/trades/note", { id: +i.dataset.note, notes: i.value }).then(() => toast("Note saved")));
+}
+function coachChip(t) {
+  let an = null; try { an = t.analysis ? JSON.parse(t.analysis) : null; } catch { }
+  if (!an || !an.grade) return '<span class="dim">—</span>';
+  const lines = [...(an.checks || []), ...(an.review || [])].map((c) => `${c[0] === "bad" ? "✗" : c[0] === "warn" ? "!" : c[0] === "good" ? "✓" : "·"} ${c[1]}`).join(" | ");
+  const kind = { A: "GO", B: "CAUTION", C: "EXIT" }[an.grade] || "SKIP";
+  return `<span class="chip ${kind}" title="${esc(lines)}">${esc(an.grade)}${an.kind === "retro" ? "" : " live"}</span>`;
 }
 function drawCurve(pts) {
   const el = $("#curve");
@@ -290,6 +301,7 @@ async function loadIntel() {
     $("#rules").innerHTML = d.rules.map((r) => `<li>${esc(r)}</li>`).join("");
   }
   loadMe();
+  loadMarket();
 }
 function drawHours(rows, nowH) {
   if (!rows.length) { $("#clockchart").innerHTML = '<div class="empty">No hourly data.</div>'; return; }
@@ -306,6 +318,32 @@ function drawHours(rows, nowH) {
   const cur = rows.find((r) => r.et === nowH);
   $("#clock-note").innerHTML = `Now (${nowH}:00 ET): <b>${cur ? cur.per1k : "—"}</b> graduations per 1k launches. Best: 5–7 PM and midnight–4 AM ET. Worst: 7–8 AM ET. Saturday is the best day; Wed/Thu the weakest.`;
 }
+async function loadMarket() {
+  const d = await api("/api/market").catch(() => null);
+  if (!d || d.pending) { $("#market").innerHTML = '<div class="empty">First scan running (about a minute)…</div>'; return; }
+  $("#mk-sub").textContent = `scanned ${ago(d.at)} · every 20 min`;
+  const x = d.xray || {}, s = d.signals || {}, z = d.zones || {};
+  const zmax = Math.max(1, ...Object.values(z));
+  const kv = (l, v, sub) => `<div class="kpi"><label>${l}</label><div class="v">${v}</div><div class="s">${sub || ""}</div></div>`;
+  $("#market").innerHTML = `<div class="me-grid">
+    ${kv("Mood", `<span class="${d.mood === "Hot" ? "up" : d.mood === "Cold" ? "down" : ""}">${esc(d.mood)}</span>`, esc(d.et))}
+    ${kv("Launch pace", d.launches_per_hr ? d.launches_per_hr.toLocaleString() + "<small>/hr</small>" : "—", d.pace_vs_baseline != null ? `${pct(d.pace_vs_baseline)} vs this hour's 7-day avg (${(d.baseline_per_hr || 0).toLocaleString()})` : "")}
+    ${kv("Tradeable now", x.n ? pct(x.tradeable).replace("+", "") : "—", `${x.go || 0} GO · ${x.caution || 0} caution · ${x.skip || 0} skip of ${x.n || 0} active coins read${x.unreadable ? ` (${x.unreadable} unreadable: pump.fun throttle)` : ""}`)}
+    ${kv("Leader signals today", s.n ?? 0, `${s.go || 0} GO · ${s.ev_pos || 0} with positive EV${s.ev_median != null ? ` · median EV ${pct(s.ev_median, 1)}` : ""}`)}
+  </div>
+  <div class="grid-2">
+    <div><h4 class="mk-h">Under $80k among the ${d.active_of || 200} most recently traded coins: ${d.active}</h4>
+      ${Object.entries(z).map(([k, v]) => `<div class="zrow"><span>${esc(k)}</span><div class="bar"><i style="width:${(v / zmax * 100).toFixed(0)}%"></i></div><b>${v}</b></div>`).join("")}
+      ${x.top_fail && x.top_fail.length ? `<h4 class="mk-h" style="margin-top:14px">Why active coins fail</h4><ul class="reasons">${x.top_fail.map(([r, n]) => `<li class="hard">${esc(r)} <span class="dim">×${n}</span></li>`).join("")}</ul>` : ""}
+    </div>
+    <div><h4 class="mk-h">Most active coins, X-rayed</h4>
+      <div class="table-wrap"><table class="tbl"><tr><th>Coin</th><th class="num">Mcap</th><th class="num">Trades/min</th><th class="num">Net 5m</th><th>Verdict</th><th></th></tr>
+      ${(x.coins || []).map((c) => `<tr title="${esc((c.why || []).join(" | "))}"><td><b>${esc(c.symbol)}</b></td><td class="num">${kfmt(c.mcap)}</td><td class="num">${c.trades_60s ?? "—"}</td><td class="num ${cls(c.net_flow_5m)}">${c.net_flow_5m != null ? sgn(c.net_flow_5m, 0) : "—"}</td><td><span class="chip ${esc(c.verdict)}">${esc(c.verdict)}</span></td><td><a href="https://fomo.family/tokens/solana/${esc(c.mint)}" target="_blank" rel="noopener">fomo</a></td></tr>`).join("")}
+      </table></div></div>
+  </div>`;
+}
+$("#mk-scan").onclick = async () => { await api("/api/market/scan", {}); toast("Rescanning the market", "Takes about a minute."); setTimeout(loadMarket, 70000); };
+
 async function loadMe() {
   const d = await api("/api/me").catch(() => null);
   if (!d || !d.wallet) { $("#me-sub").textContent = ""; $("#me").innerHTML = '<div class="empty">Add your fomo wallet&#39;s Solana address in Settings. Your trades import from the chain and this report builds itself.</div>'; return; }
@@ -327,7 +365,12 @@ async function loadMe() {
   <div class="table-wrap"><table class="tbl"><tr><th>Hold time</th><th class="num">Trades</th><th class="num">P&amp;L</th></tr>
     ${Object.entries(d.holds).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.n}</td><td class="num ${cls(v.pnl)}">${sgn(v.pnl)}</td></tr>`).join("")}
     <tr><td>Copied a leader</td><td class="num">${d.copied.n}</td><td class="num ${cls(d.copied.pnl)}">${sgn(d.copied.pnl)}</td></tr>
-    <tr><td>Own picks</td><td class="num">${d.own.n}</td><td class="num ${cls(d.own.pnl)}">${sgn(d.own.pnl)}</td></tr></table></div>`;
+    <tr><td>Own picks</td><td class="num">${d.own.n}</td><td class="num ${cls(d.own.pnl)}">${sgn(d.own.pnl)}</td></tr></table></div>
+  ${d.breakdowns ? `<p class="note" style="margin-top:16px">Your trades split by the coach's checks. With n under ~30 per row, a gap smaller than ±${((d.noise || 0) * 100 * 2).toFixed(0)} pts of ROI is noise.</p>
+  <div class="bd-grid">${Object.entries(d.breakdowns).map(([t, rows]) => `<div class="bd"><h4>${esc(t)}</h4><table class="tbl">
+    <tr><th></th><th class="num">n</th><th class="num">Net</th><th class="num">ROI</th><th class="num">Win</th></tr>
+    ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${r.n}</td><td class="num ${cls(r.pnl)}">${sgn(r.pnl)}</td><td class="num ${cls(r.roi)}">${pct(r.roi, 1)}</td><td class="num">${pct(r.win).replace("+", "")}</td></tr>`).join("")}
+  </table></div>`).join("")}</div>` : ""}`;
 }
 $("#xray-form").onsubmit = async (e) => {
   e.preventDefault(); const mint = $("#xray-in").value.trim(); if (!mint) return;
@@ -374,7 +417,7 @@ async function loadSettings() {
   $("#set-risk").innerHTML = f("trade_size_usd", "Trade size (USD)", "number", 'min="5" max="1000" step="1"') + f("max_trade_usd", "Max per trade (USD)", "number", 'max="1000"') +
     f("daily_buy_cap_usd", "Daily buy cap (USD)", "number", 'max="5000"') + f("max_entries_per_day", "Max entries / day") +
     f("daily_loss_limit_pct", "Daily loss limit (% of cap)") + f("loss_streak_limit", "Kill after N losses in a row") +
-    f("max_mcap_usd", "Max entry market cap (USD)") + f("entry_delay_s", "Paper entry delay (s)") + f("exit_delay_s", "Paper exit delay (s)") +
+    f("max_mcap_usd", "Max entry market cap (USD)") + f("min_leader_median_usd", "Watch leaders with median trade ≥ (USD)") + f("entry_delay_s", "Paper entry delay (s)") + f("exit_delay_s", "Paper exit delay (s)") +
     f("time_stop_min", "Time stop (min)") + f("disaster_stop_pct", "Disaster stop (%)") +
     `<label>Auto paper-trade GO signals<select name="auto_paper"><option value="true" ${s.auto_paper ? "selected" : ""}>On</option><option value="false" ${!s.auto_paper ? "selected" : ""}>Off</option></select></label>
      <div class="actions"><button class="btn">Save risk settings</button></div>`;

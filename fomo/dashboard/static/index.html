@@ -32,6 +32,7 @@
         <div class="window" id="window"></div>
       </div>
       <div class="top-r">
+        <div class="pill" id="mood" title="Market pulse: launch pace vs baseline and how many active coins pass the avoid rules">Market --</div>
         <div class="pill" id="sol">SOL --</div>
         <div class="pill" id="kill"></div>
         <div class="pill gate" id="gate"></div>
@@ -90,6 +91,10 @@
 
     <!-- INTELLIGENCE -->
     <section class="view" id="v-intel">
+      <div class="card">
+        <div class="card-h"><h2>Market pulse</h2><div class="row-gap"><span class="sub" id="mk-sub"></span><button class="btn ghost sm" id="mk-scan">Rescan now</button></div></div>
+        <div id="market"></div>
+      </div>
       <div class="card">
         <div class="card-h"><h2>Coin X-ray</h2><span class="sub">Paste any pump.fun token address</span></div>
         <form class="xray-form" id="xray-form"><input id="xray-in" placeholder="Token address (…pump)" autocomplete="off"><button class="btn">Scan</button></form>

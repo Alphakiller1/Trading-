@@ -1,6 +1,6 @@
 """The live engine: watches leader wallets (and yours) on-chain, scores every leader buy, runs the
 paper trader, raises exit alerts, auto-logs your real trades and enforces the daily risk limits."""
-import datetime as dt, json, threading, time, traceback
+import datetime as dt, json, queue, threading, time, traceback
 from zoneinfo import ZoneInfo
 import requests
 from . import config, store, pump, chain, intel, social, leaders, model
@@ -200,19 +200,213 @@ def on_my_trade(tr, quiet=False):
             store.update("trades", "id", t["id"], dict(size_usd=round((t["size_usd"] or 0) + tr["usd"], 2), tokens=(t["tokens"] or 0) + tr["tokens"]))
         else:
             sig = store.one("SELECT * FROM signals WHERE mint=? AND side='buy' AND role='leader' AND ts>=? ORDER BY ts DESC", (tr["mint"], tr["ts"] - 3600))
-            store.insert("trades", dict(mode="real", mint=tr["mint"], symbol=sym, leader=sig["wallet"] if sig else None,
-                                        signal_id=sig["id"] if sig else None, opened_at=tr["ts"], entry_mcap=mc, size_usd=round(tr["usd"], 2),
-                                        tokens=tr["tokens"], lift=1.0, status="open", last_mcap=mc, peak_mcap=mc, proceeds_usd=0, source="wallet"))
-        if not quiet:
-            notify("info", "MINE", f"Logged your buy: {sym} ${tr['usd']:.2f}", "", tr["mint"])
+            tid = store.insert("trades", dict(mode="real", mint=tr["mint"], symbol=sym, leader=sig["wallet"] if sig else None,
+                                              signal_id=sig["id"] if sig else None, opened_at=tr["ts"], entry_mcap=mc, size_usd=round(tr["usd"], 2),
+                                              tokens=tr["tokens"], lift=1.0, status="open", last_mcap=mc, peak_mcap=mc, proceeds_usd=0, source="wallet"))
+            if not quiet:
+                threading.Thread(target=_safe, args=(coach_buy, tid), daemon=True).start()
+        if not quiet and t:
+            notify("info", "MINE", f"Added to {sym}: +${tr['usd']:.2f}", "Averaging into an open position.", tr["mint"])
     elif t:
         proceeds = (t["proceeds_usd"] or 0) + tr["usd"]
         if tr["remaining"] <= max(1e-6, 0.001 * (t["tokens"] or 0)):
-            close_trade(t, "you sold", mc, proceeds, quiet=quiet, at=tr["ts"] if quiet else None)
+            close_trade(t, "you sold", mc, proceeds, quiet=True, at=tr["ts"] if quiet else None)
+            if not quiet:
+                threading.Thread(target=_safe, args=(coach_sell, t["id"]), daemon=True).start()
         else:
             store.update("trades", "id", t["id"], dict(proceeds_usd=round(proceeds, 2), notes=f"partial sells ${proceeds:.2f}"))
-        if not quiet:
-            notify("info", "MINE", f"Logged your sell: {sym} ${tr['usd']:.2f}", "", tr["mint"])
+            if not quiet:
+                notify("info", "MINE", f"Partial sell {sym}: ${tr['usd']:.2f}", f"${proceeds:.2f} taken out so far.", tr["mint"])
+
+
+# ---------------------------------------------------------------- live coach (your own trades)
+def _grade(checks):
+    if any(l == "bad" for l, _ in checks): return "C"
+    if any(l == "warn" for l, _ in checks): return "B"
+    return "A"
+
+
+def coach_buy(tid):
+    """Analyze one of YOUR buys the moment it lands: coin X-ray, model EV, and the rules."""
+    cfg = config.load()
+    t = store.one("SELECT * FROM trades WHERE id=?", (tid,))
+    if not t:
+        return
+    mint, sym = t["mint"], t["symbol"]
+    sig = store.one("SELECT * FROM signals WHERE mint=? AND side='buy' AND role='leader' AND ts>=? ORDER BY ts DESC", (mint, t["opened_at"] - 3600))
+    leader = store.one("SELECT * FROM leaders WHERE wallet=?", (sig["wallet"],)) if sig else None
+    x = intel.xray(mint, leader, sig["usd"] if sig else None)
+    if sig and leader:
+        apply_model(x, leader, sig["usd"])
+    m = x["m"]
+    mc = m.get("mcap") or t["entry_mcap"]
+    if mc and not t["entry_mcap"]:
+        store.update("trades", "id", tid, {"entry_mcap": mc, "last_mcap": mc, "peak_mcap": mc})
+    checks = []
+    lost = store.q("SELECT pnl_usd FROM trades WHERE mode='real' AND mint=? AND status='closed' AND closed_at>=? AND closed_at<=? "
+                   "AND pnl_usd<0 AND id<>?", (mint, _day_start(), t["opened_at"], tid))
+    if lost:
+        rec = reentry_record()
+        checks.append(("warn", f"Re-entry: you already lost ${-sum(r['pnl_usd'] for r in lost):.2f} on {sym} today "
+                               f"(your re-entries after a loss so far: ${rec['pnl']:+.2f} over {rec['n']})"))
+    rk = risk("real")
+    if rk["killed"]:
+        checks.append(("bad", "Kill switch was on: " + "; ".join(rk["reasons"])))
+    if t["size_usd"] > cfg["max_trade_usd"]:
+        checks.append(("bad", f"Size ${t['size_usd']:.0f} is over your ${cfg['max_trade_usd']:.0f} max"))
+    elif t["size_usd"] > 1.5 * cfg["trade_size_usd"]:
+        checks.append(("warn", f"Size ${t['size_usd']:.0f} is above your ${cfg['trade_size_usd']:.0f} plan"))
+    if mc:
+        if mc >= cfg["max_mcap_usd"]:
+            checks.append(("bad", f"Entry at ${mc:,.0f}: above your ${cfg['max_mcap_usd']:,.0f} limit"))
+        elif mc >= 25000:
+            checks.append(("warn", f"Entry at ${mc:,.0f}: above $25k, where every trade type lost out of sample"))
+        elif mc < 10000:
+            checks.append(("good", f"Entry at ${mc:,.0f}: in the model's best zone (< $10k)"))
+    if x["verdict"] == "SKIP":
+        checks.append(("bad", "Coin fails the avoid rules: " + "; ".join(x["hard"][:3])))
+    elif x["soft"]:
+        checks.append(("warn", "Caution flags: " + "; ".join(x["soft"][:3])))
+    else:
+        checks.append(("good", "Coin passes every avoid rule"))
+    if sig:
+        mv = x.get("model")
+        ev = f", model EV {mv['copier_ev']:+.1%}" if mv else ""
+        lvl = "bad" if sig["verdict"] == "SKIP" else ("good" if sig["verdict"] == "GO" else "warn")
+        checks.append((lvl, f"Copied leader {sig['wallet'][:6]} ({sig['verdict']} signal{ev}, {(t['opened_at'] - sig['ts']):.0f}s after their buy)"))
+    else:
+        own = store.one("SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(*) n FROM trades WHERE mode='real' AND status='closed' AND leader IS NULL")
+        checks.append(("info", f"Own pick, no leader signal (your own picks so far: ${own['p']:+.2f} over {own['n']} trades)"))
+    if dt.datetime.now(ET).hour in (7, 8):
+        checks.append(("warn", "7-8 AM ET is the weakest hour for graduations"))
+    g = _grade(checks)
+    an = dict(kind="buy", grade=g, verdict=x["verdict"], model=x.get("model"), checks=checks, at=time.time(),
+              m={k: m.get(k) for k in ("mcap", "age_min", "trades_60s", "buyers_5m", "net_flow_5m", "range_5m",
+                                       "dev_sold", "dev_holds_pct", "top3_holders", "top3_early")})
+    store.update("trades", "id", tid, {"analysis": json.dumps(an)})
+    body = " | ".join(c for l, c in checks if l in ("bad", "warn")) or " | ".join(c for _, c in checks[:2])
+    notify({"A": "go", "B": "caution", "C": "risk"}[g], "COACH", f"Your buy {sym} ${t['size_usd']:.2f}: grade {g}, coin {x['verdict']}", body, mint)
+
+
+def coach_sell(tid):
+    """Review one of YOUR closed trades: result, hold time, fee drag, and the exit rules."""
+    t = store.one("SELECT * FROM trades WHERE id=?", (tid,))
+    if not t or t["status"] != "closed":
+        return
+    an = json.loads(t["analysis"]) if t.get("analysis") else {}
+    hold = ((t["closed_at"] or time.time()) - t["opened_at"]) / 60
+    proceeds = t["proceeds_usd"] or 0
+    fee = pump.fomo_fee(t["size_usd"]) + pump.PUMP_FEE * t["size_usd"] + pump.fomo_fee(proceeds) + pump.PUMP_FEE * proceeds
+    review = [("good" if t["pnl_usd"] > 0 else "bad", f"{t['pnl_usd']:+.2f} USD ({t['roi']:+.0%}) after ~${fee:.2f} in fees, held {hold:.1f} min")]
+    if hold < 1:
+        review.append(("warn", f"Held under a minute: fees took ~{fee / t['size_usd']:.0%} of the trade; your 5-min+ holds have done better"))
+    if t["leader"]:
+        ls = store.one("SELECT ts FROM signals WHERE wallet=? AND mint=? AND side='sell' AND ts>=? ORDER BY ts LIMIT 1", (t["leader"], t["mint"], t["opened_at"]))
+        if ls:
+            d = t["closed_at"] - ls["ts"]
+            review.append(("good" if abs(d) <= 60 else "warn", f"Leader sold {abs(d):.0f}s {'before' if d > 0 else 'after'} you (rule: exit within 30s of the leader)"))
+        else:
+            review.append(("warn", "You sold before the leader did (the rule is to mirror the leader's exit)"))
+    if t.get("peak_mcap") and t.get("exit_mcap") and t["peak_mcap"] > 1.3 * t["exit_mcap"] and t["pnl_usd"] < 0:
+        review.append(("warn", f"It reached ${t['peak_mcap']:,.0f} mcap while you held; the exit gave it back"))
+    an.update(review=review, review_at=time.time())
+    store.update("trades", "id", tid, {"analysis": json.dumps(an)})
+    notify("go" if t["pnl_usd"] > 0 else "caution", "COACH", f"Your sell {t['symbol']}: {t['pnl_usd']:+.2f} USD ({t['roi']:+.0%}), {hold:.1f} min",
+           " | ".join(c for _, c in review[1:]) or review[0][1], t["mint"])
+    check_kill()
+
+
+def reentry_record():
+    """Your realized P&L on trades that re-entered a coin after a same-day loss (the coach cites it)."""
+    rows = store.q("SELECT mint, opened_at, pnl_usd FROM trades WHERE mode='real' AND status='closed' ORDER BY opened_at")
+    lost, n, pnl = set(), 0, 0.0
+    for r in rows:
+        k = (r["mint"], dt.datetime.fromtimestamp(r["opened_at"], ET).date())
+        if k in lost:
+            n += 1; pnl += r["pnl_usd"] or 0
+        if (r["pnl_usd"] or 0) < 0:
+            lost.add(k)
+    return dict(n=n, pnl=pnl)
+
+
+def retro_coach(t):
+    """Grade a past trade from what was recorded (no live coin state): entry zone from your fill,
+    size, hour, re-entry after a loss, hold time and fee drag. Used for history and catch-up."""
+    cfg = config.load()
+    checks = []
+    mc = t["entry_mcap"]
+    if not mc and t["tokens"] and t["size_usd"] and str(t["mint"]).endswith("pump"):
+        mc = t["size_usd"] / t["tokens"] * 1e9          # pump.fun supply is 1B: avg fill price -> mcap
+        store.update("trades", "id", t["id"], {"entry_mcap": mc})
+    if mc:
+        if mc >= cfg["max_mcap_usd"]:
+            checks.append(("bad", f"Entry at ${mc:,.0f}: above your ${cfg['max_mcap_usd']:,.0f} limit"))
+        elif mc >= 25000:
+            checks.append(("warn", f"Entry at ${mc:,.0f}: above $25k, where every trade type lost out of sample"))
+        elif mc < 10000:
+            checks.append(("good", f"Entry at ${mc:,.0f}: in the model's best zone (< $10k)"))
+        else:
+            checks.append(("info", f"Entry at ${mc:,.0f}: middle zone ($10k-$25k)"))
+    d0 = dt.datetime.fromtimestamp(t["opened_at"], ET)
+    day0 = dt.datetime(d0.year, d0.month, d0.day, tzinfo=ET).timestamp()
+    lost = store.q("SELECT pnl_usd FROM trades WHERE mode='real' AND mint=? AND status='closed' AND closed_at>=? AND closed_at<=? AND pnl_usd<0 AND id<>?",
+                   (t["mint"], day0, t["opened_at"], t["id"]))
+    if lost:
+        checks.append(("warn", f"Re-entry after losing ${-sum(r['pnl_usd'] for r in lost):.2f} on this coin the same day"))
+    if t["size_usd"] > 1.5 * cfg["trade_size_usd"]:
+        checks.append(("warn", f"Size ${t['size_usd']:.0f} above your ${cfg['trade_size_usd']:.0f} plan"))
+    if d0.hour in (7, 8):
+        checks.append(("warn", "Entered in the 7-8 AM ET weak window"))
+    checks.append(("good", f"Copied leader {t['leader'][:6]}") if t["leader"] else ("info", "Own pick (no leader signal)"))
+    review = []
+    if t["status"] == "closed" and t["size_usd"]:
+        hold = ((t["closed_at"] or 0) - t["opened_at"]) / 60
+        proceeds = t["proceeds_usd"] or 0
+        fee = pump.fomo_fee(t["size_usd"]) + pump.PUMP_FEE * t["size_usd"] + pump.fomo_fee(proceeds) + pump.PUMP_FEE * proceeds
+        review.append(("good" if (t["pnl_usd"] or 0) > 0 else "bad", f"{(t['pnl_usd'] or 0):+.2f} USD ({(t['roi'] or 0):+.0%}) after ~${fee:.2f} fees, held {hold:.1f} min"))
+        if hold < 1:
+            review.append(("warn", f"Held under a minute: fees took ~{fee / t['size_usd']:.0%} of the trade"))
+    an = dict(kind="retro", grade=_grade(checks + [r for r in review if r[0] == "warn"]), checks=checks, review=review, at=time.time())
+    store.update("trades", "id", t["id"], {"analysis": json.dumps(an)})
+    return an
+
+
+def retro_all():
+    for t in store.q("SELECT * FROM trades WHERE mode='real' AND (analysis IS NULL OR analysis='') ORDER BY opened_at"):
+        retro_coach(t)
+
+
+def me_loop():
+    """Your wallet on its own fast loop, so your trades are analyzed within seconds."""
+    while True:
+        try:
+            w = config.load().get("my_wallet")
+            if w:
+                sigs = [s for s in chain.signatures(w, 10) if not s.get("err")]
+                if not store.one("SELECT 1 x FROM seen WHERE wallet=? LIMIT 1", (w,)):
+                    backfill_me(w)
+                else:
+                    new = [s for s in sigs if not store.one("SELECT 1 x FROM seen WHERE sig=?", (s["signature"],))]
+                    if new and len(new) == len(sigs):
+                        # every recent tx is unseen: the engine was off, so catch up on the whole gap
+                        full = [s for s in (chain.rpc("getSignaturesForAddress", [w, {"limit": 1000}]) or []) if not s.get("err")]
+                        new = [s for s in full if not store.one("SELECT 1 x FROM seen WHERE sig=?", (s["signature"],))]
+                    caught = 0
+                    for s in reversed(new):
+                        store.insert("seen", dict(sig=s["signature"], wallet=w, ts=s.get("blockTime") or time.time()))
+                        tr = chain.parse_trade(s["signature"], w, pump.sol_price())
+                        if tr:
+                            stale = time.time() - (tr["ts"] or 0) > 300   # older than 5 min: log it, don't alert
+                            on_my_trade(tr, quiet=stale)
+                            caught += stale
+                    if caught:
+                        retro_all()
+                        store.alert("info", "MINE", f"Caught up {caught} trades made while the engine was off",
+                                    "They're in your trade log; the retro coach grades them.")
+                state["me_cycle"] = time.time()
+        except Exception:
+            log_error("me", traceback.format_exc(limit=2))
+        time.sleep(5)
 
 
 def backfill_me(w):
@@ -228,34 +422,44 @@ def backfill_me(w):
         store.alert("info", "MINE", f"Imported {n} of your past fomo trades", "Your trade log now starts with your real history.")
 
 
+STALE_S = 180          # a leader trade older than this is history, not a signal
+_jobs = queue.Queue()
+
+
+def _signal_worker():
+    """X-rays and alerts run here, off the polling loop, so one slow coin can't delay the next leader."""
+    while True:
+        tr, row = _jobs.get()
+        _safe(on_leader_trade, tr, row)
+
+
 def watch_loop():
     while True:
+        t0 = time.time()
         try:
-            cfg = config.load()
-            watch = [(r, "leader") for r in store.q("SELECT * FROM leaders WHERE enabled=1")]
-            if cfg.get("my_wallet"):
-                watch.append(({"wallet": cfg["my_wallet"]}, "me"))
+            # your wallet runs in me_loop; small-ticket leaders never produce a positive-EV signal, so skip them
+            watch = store.q("SELECT * FROM leaders WHERE enabled=1 AND (source='manual' OR COALESCE(median_size, 0) >= ?)",
+                            (config.load()["min_leader_median_usd"],))
             state["watching"] = len(watch)
             sol = pump.sol_price()
-            for row, role in watch:
+            for row in watch:
                 w = row["wallet"]
-                sigs = [s for s in chain.signatures(w, 15) if not s.get("err")]
+                sigs = [s for s in chain.signatures(w, 5) if not s.get("err")]
                 primed = store.one("SELECT 1 x FROM seen WHERE wallet=? LIMIT 1", (w,))
                 new = [s for s in sigs if not store.one("SELECT 1 x FROM seen WHERE sig=?", (s["signature"],))]
                 for s in new:
                     store.insert("seen", dict(sig=s["signature"], wallet=w, ts=s.get("blockTime") or time.time()))
-                if not primed and role == "me":
-                    backfill_me(w)          # first sight of your wallet: import your history quietly
-                    continue
                 if not primed:
                     continue                 # first sight of a leader: remember history, don't alert on it
                 for s in reversed(new):
+                    if time.time() - (s.get("blockTime") or 0) > STALE_S:
+                        continue             # made while we weren't looking: too late to copy
                     tr = chain.parse_trade(s["signature"], w, sol)
-                    if not tr:
-                        continue
-                    (on_leader_trade(tr, row) if role == "leader" else on_my_trade(tr))
+                    if tr:
+                        _jobs.put((tr, row))
             state["last_cycle"] = time.time()
-        except Exception as e:
+            state["cycle_s"] = round(time.time() - t0, 1)
+        except Exception:
             log_error("watch", traceback.format_exc(limit=2))
         time.sleep(config.load()["poll_leaders_s"])
 
@@ -299,5 +503,8 @@ def start():
     last = store.one("SELECT MAX(updated_at) t FROM leaders WHERE source IN ('auto','lapsed')")
     if not last or not last["t"] or time.time() - last["t"] > 20 * 3600:
         leaders.refresh_async()
-    for fn in (watch_loop, positions_loop):
+    threading.Thread(target=_safe, args=(retro_all,), daemon=True).start()
+    for _ in range(2):
+        threading.Thread(target=_signal_worker, daemon=True).start()
+    for fn in (watch_loop, me_loop, positions_loop):
         threading.Thread(target=fn, daemon=True).start()

@@ -10,7 +10,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from core import config, store, pump, chain, intel, social, leaders, engine  # noqa: E402
+from core import config, store, pump, chain, intel, social, leaders, engine, market  # noqa: E402
 
 PORT = int(os.environ.get("FOMO_DASH_PORT", "8777"))
 # The hosted interface on GitHub Pages may call this local engine; nothing else may (CORS).
@@ -73,8 +73,9 @@ def state():
         unread=store.one("SELECT COUNT(*) n FROM alerts WHERE read=0")["n"],
         leaders=dict(active=store.one("SELECT COUNT(*) n FROM leaders WHERE enabled=1")["n"], job=leaders.job),
         health=dict(rpc_ok=chain.health["last_ok"], pump_ok=pump.health["last_ok"], pump_throttled_until=pump.health["throttled_until"],
-                    x=social.view(), last_cycle=engine.state["last_cycle"], watching=engine.state["watching"], errors=engine.state["errors"][-5:]),
+                    x=social.view(), last_cycle=engine.state["last_cycle"], cycle_s=engine.state.get("cycle_s"), watching=engine.state["watching"], errors=engine.state["errors"][-5:]),
         settings=dict(trade_size_usd=cfg["trade_size_usd"], my_wallet=cfg["my_wallet"], auto_paper=cfg["auto_paper"]),
+        market=(lambda m: dict(mood=m["mood"], at=m["at"]) if m else None)(market.latest()),
     )
 
 
@@ -129,7 +130,9 @@ def me():
         ins.append(("bad", f"<b>Fees ate ${fees:,.2f}</b>, more than your net P&L of ${net:+,.2f}. Before fees you made <b>${net + fees:+,.2f}</b>: "
                            f"your picks work, your size doesn't. At your ${avg_size:,.0f} average a round trip costs {out['cost_now']:.1%}; at $190 it's {out['cost_190']:.1%}."))
     if reent:
-        ins.append(("bad", f"<b>{len(reent)} re-entries</b> into a coin you had just lost on today: <b>${out['reentries']['pnl']:+,.2f}</b>. Rule 5: no re-entry after a loss."))
+        rp = out['reentries']['pnl']
+        ins.append(("bad" if rp < 0 else "", f"<b>{len(reent)} re-entries</b> into a coin you had just lost on today: <b>${rp:+,.2f}</b>. "
+                    + ("Re-entering losers is costing you." if rp < 0 else "So far this hasn't hurt you; the coach still flags it so the record keeps building.")))
     if bag_n:
         ins.append(("bad", f"<b>{bag_n} open bag{'s' if bag_n > 1 else ''}</b> down more than 50% (<b>${bag_val:+,.2f}</b>). The −50% disaster stop says sell and free the cash."))
     if best > 0 and net - best < 0:
@@ -143,6 +146,37 @@ def me():
     elif copied:
         ins.append(("good" if sum(copied) > sum(own) else "", f"Copied leaders: <b>${sum(copied):+,.2f}</b> on {len(copied)} · own picks: <b>${sum(own):+,.2f}</b> on {len(own)}."))
     out["insights"] = [dict(level=a, html=b) for a, b in ins]
+
+    # breakdowns of YOUR trades: the coach's checks, scored on your own outcomes (small n: read as hints)
+    def agg(rows):
+        s = sum(r["size_usd"] for r in rows)
+        p = [r["pnl_usd"] or 0 for r in rows]
+        return dict(n=len(rows), pnl=sum(p), roi=sum(p) / s if s else 0, win=sum(x > 0 for x in p) / len(p) if p else 0)
+    def split(keyf, order):
+        g = {}
+        for r in closed:
+            g.setdefault(keyf(r), []).append(r)
+        return [dict(agg(g[k]), label=k) for k in order if k in g]
+    zone = lambda m: "unknown" if not m else "< $10k" if m < 10000 else "$10k-25k" if m < 25000 else "$25k-80k" if m < 80000 else "> $80k"
+    hr = lambda r: dt.datetime.fromtimestamp(r["opened_at"], engine.ET).hour
+    block = lambda h: "00-04 ET" if h < 4 else "04-08 ET" if h < 8 else "08-12 ET" if h < 12 else "12-17 ET" if h < 17 else "17-24 ET"
+    seen, lost, kind = set(), set(), {}
+    for r in closed:
+        k = (r["mint"], dt.datetime.fromtimestamp(r["opened_at"], engine.ET).date())
+        kind[r["id"]] = "after a loss" if k in lost else ("after a win" if k in seen else "first try")
+        seen.add(k)
+        if (r["pnl_usd"] or 0) < 0:
+            lost.add(k)
+    grade = lambda r: (json.loads(r["analysis"]).get("grade") if r.get("analysis") else None) or "ungraded"
+    out["breakdowns"] = {
+        "Entry market cap": split(lambda r: zone(r["entry_mcap"]), ["< $10k", "$10k-25k", "$25k-80k", "> $80k", "unknown"]),
+        "Hour you entered": split(lambda r: block(hr(r)), ["00-04 ET", "04-08 ET", "08-12 ET", "12-17 ET", "17-24 ET"]),
+        "Trade size": split(lambda r: "< $30" if r["size_usd"] < 30 else "$30-50" if r["size_usd"] < 50 else "$50+", ["< $30", "$30-50", "$50+"]),
+        "Same coin, same day": split(lambda r: kind[r["id"]], ["first try", "after a win", "after a loss"]),
+        "Coach grade": split(grade, ["A", "B", "C", "ungraded"]),
+    }
+    ev = [r["roi"] or 0 for r in closed]
+    out["noise"] = (statistics.pstdev(ev) / len(ev) ** 0.5) if len(ev) > 2 else None
     return out
 
 
@@ -159,7 +193,7 @@ RULES = [
     "Skip: dev sold, bundled launch (top-3 > 60%), 5-min range < 12%, < 3 trades/min, launch < 1 min old",
     "Size $100-$190 (fomo's 0.5% tier starts at $190); never above $1k; max $5k and 10 entries a day",
     "Sell within 30s of the leader's first sell; 2-hour time stop; -50% disaster stop",
-    "No re-entry into a coin you lost on today",
+    "Re-entries are unproven either way: the coach flags them and tracks your record (see the edge report)",
     "Kill switch: 4 losses in a row or -15% of the day's budget = done for the day",
     "Real money only after 50+ paper trades positive with and without the best 2",
 ]
@@ -253,6 +287,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json(x)
             if p == "/api/intel":
                 return self._json(intel_payload())
+            if p == "/api/market":
+                return self._json(market.latest() or {"pending": True})
             if p == "/api/me":
                 return self._json(me() or {"wallet": None})
             if p == "/api/settings":
@@ -313,6 +349,9 @@ class H(BaseHTTPRequestHandler):
                 json.dump({"auth_token": b["auth_token"], "ct0": b["ct0"]}, open(social.COOKIES, "w"))
                 social.reset()
                 return self._json({"ok": True})
+            if p == "/api/market/scan":
+                threading.Thread(target=market.scan, args=(HOURLY,), daemon=True).start()
+                return self._json({"started": True})
             if p == "/api/test-alert":
                 engine.notify("go", "GO", "Test alert", "If you see this on Discord, alerts are wired."); return self._json({"ok": True})
             return self._json({"error": "not found"}, 404)
@@ -322,6 +361,7 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     engine.start()
+    threading.Thread(target=market.loop, args=(HOURLY,), daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     print(f"fomo command center on http://127.0.0.1:{PORT}", flush=True)
     srv.serve_forever()

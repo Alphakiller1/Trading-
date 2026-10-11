@@ -96,8 +96,22 @@ def mcap(mint, max_age=8):
     return float(d["usd_market_cap"]) if d and d.get("usd_market_cap") else None
 
 
-def trades(mint, pages=2):
-    """Latest trades, oldest first. Returns (trades, reached_start)."""
+_trade_cache = {}
+
+
+def trades(mint, pages=2, max_age=30):
+    """Latest trades, oldest first. Returns (trades, reached_start). Cached briefly: several leaders
+    often buy the same coin within seconds, and each X-ray would otherwise refetch the same pages."""
+    hit = _trade_cache.get(mint)
+    if hit and time.time() - hit[0] < max_age and hit[1] >= pages:
+        return hit[2]
+    res = _trades(mint, pages)
+    if res[0]:
+        _trade_cache[mint] = (time.time(), pages, res)
+    return res
+
+
+def _trades(mint, pages):
     out, cursor, start = [], None, False
     for _ in range(pages):
         p = dict(limit=100, program="pump", chainId=CHAIN)

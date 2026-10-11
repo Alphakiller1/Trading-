@@ -28,6 +28,11 @@ CREATE INDEX IF NOT EXISTS ix_sig_ts ON signals(ts);
 CREATE INDEX IF NOT EXISTS ix_tr_status ON trades(status);
 """)
 _conn.commit()
+for _col in ("analysis TEXT",):
+    try:
+        _conn.execute(f"ALTER TABLE trades ADD COLUMN {_col}"); _conn.commit()
+    except sqlite3.OperationalError:
+        pass   # column already exists
 
 
 def q(sql, args=()):
