@@ -260,6 +260,41 @@ Run with `walkforward.py`. Wallet skill is measured using **only trades before c
 - **What survives every test is the avoid list:** dev sold, bundled launch, volatility < 12%, and buying fresh launches after a run.
 - **What's needed is multi-day data**, so walk-forward tests can use days of training and a separate test day. `collector.py` is built to run for days on a home PC.
 
+## Getting in early: launch-time entries (walk-forward by launch time)
+Run with `early.py` and `early_exits.py`. 1,296 launches with complete histories (526 live-logged + 770 historical). $100 trades with a 3-second execution delay, all costs.
+
+| Entry | ROI per trade | Win rate | Earlier launches | Later launches |
+|---|---|---|---|---|
+| launch + 3s | −6.0% | 14% | −6.0% | −6.0% |
+| launch + 10s | −7.5% | 11% | −6.3% | −8.7% |
+| launch + 30s | −7.6% | 8% | −7.4% | −7.8% |
+| launch + 60s | −8.0% | 5% | −6.8% | −9.2% |
+
+Information known at launch did not create an edge (entry at +10s):
+- No socials −3.6%, web/tg −9.8%, tweet-linked −12.5%.
+- Dev buy ≥ $100: −8.8%.
+- **Dev had a prior coin ≥ $50k: −17.2%.** Those devs are serial pump-and-dumpers.
+- **5+ early buyers: −15.1%; spread-out early buying: −20.0%.** That early activity is mostly bots that dump.
+- Description ≥ 50 characters: −2.3% (earlier +1.5%, later −6.1%).
+
+Exits: the best rule picked on earlier launches (+10s entry, take profit +60%, stop −15%) scored −2.5% on those launches and **−4.7% to −7.1% on later ones**.
+
+**Conclusion:** early entry has no edge after costs at app speed, and fomo is slower than the 3-second delay assumed here. Early-entry profits accrue to sub-second bots with bundled launches, and to insiders.
+
+## Callouts (public calls on pump.fun / fomo): caller skill persists, the trade needs stops
+Run with `callouts.py`. Endpoints: `/callout/list/{wallet}`, `/home-feed`, `/mint-positions/{mint}?withThesis=true`.
+
+Data: 67 callers, 3,880 calls with outcomes at least 24h old. A caller's record uses **only calls made ≥ 24h before** the call being tested (no look-ahead).
+
+| Calls under $200k | n | Hit 2× (after a +10% entry slip) | Proxy ROI (take profit 2×, else hold) |
+|---|---|---|---|
+| All | 3,351 | 34.0% | −25.0% |
+| Callers with 5+ prior calls and prior 2× rate ≥ 50% | 456 | **44.1%** | −16.5% |
+| Callers with 5+ prior calls and prior 2× rate < 20% | 184 | 26.6% | −27.5% |
+
+- **Caller skill persists**: 44% against 27% hit 2×, consistent in earlier and later data.
+- "Hold if 2× isn't hit" loses because the misses bleed toward zero. The open question is whether a −30% stop triggers before the 2× run. `callout_paths.py` rebuilds each call's price path from the trade tape to test that properly. Results pending.
+
 ## Open work
 - (superseded by the walk-forward result) Re-test the copy rule on full coin histories, including the $80k–$200k band (focus is now coins under $200k; current data has no full-history signals above $80k).
 - Improve exits on copies, for example scaling out at +30% or +50% instead of only mirroring the leader.
