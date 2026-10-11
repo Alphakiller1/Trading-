@@ -3,7 +3,7 @@ paper trader, raises exit alerts, auto-logs your real trades and enforces the da
 import datetime as dt, json, queue, threading, time, traceback
 from zoneinfo import ZoneInfo
 import requests
-from . import config, store, pump, chain, intel, social, leaders, model
+from . import config, store, pump, chain, intel, social, leaders, model, holdplan
 
 ET = ZoneInfo("America/New_York")
 state = {"started": time.time(), "last_cycle": 0.0, "watching": 0, "errors": [], "kill": {}}
@@ -98,9 +98,11 @@ def open_paper(signal_id):
         return
     size = min(cfg["trade_size_usd"], cfg["max_trade_usd"])
     tok, lift = pump.buy_fill(size, mc / 1e9)
+    hp = (json.loads(s["intel"] or "{}") or {}).get("hold")
     tid = store.insert("trades", dict(mode="paper", mint=s["mint"], symbol=s["symbol"], leader=s["wallet"], signal_id=s["id"],
                                       opened_at=time.time(), entry_mcap=mc, size_usd=size, tokens=tok, lift=lift,
-                                      status="open", last_mcap=mc, peak_mcap=mc, source="auto"))
+                                      status="open", last_mcap=mc, peak_mcap=mc, source="auto",
+                                      analysis=json.dumps(dict(kind="paper", plan=hp))))
     notify("info", "PAPER", f"Paper buy {s['symbol']} ${size:.0f} at ${mc:,.0f} mcap", f"Trade #{tid}, copying {s['wallet'][:6]}", s["mint"])
 
 
@@ -162,6 +164,7 @@ def on_leader_trade(tr, leader):
             return
         x = intel.xray(tr["mint"], leader, tr["usd"])
         apply_model(x, leader, tr["usd"])
+        x["hold"] = holdplan.plan(x["verdict"], bool(x.get("model") and x["model"]["copier_ev"] > 0))
         if x["verdict"] != "SKIP":
             x["social"] = social.mentions(sym, tr["mint"])
         sid = store.insert("signals", dict(ts=tr["ts"], wallet=leader["wallet"], role="leader", mint=tr["mint"], symbol=sym, side="buy",
@@ -169,6 +172,9 @@ def on_leader_trade(tr, leader):
                                            reasons=x["hard"] + x["soft"], intel=x, tx=tr["sig"]))
         lead = f"{leader['wallet'][:6]} (14d ROI {leader['roi_14d']:+.0%}, win {leader['win_rate']:.0%})" if leader.get("roi_14d") is not None else leader["wallet"][:6]
         body = f"Leader {lead} bought ${tr['usd']:.0f} at ${(x['m']['mcap'] or 0):,.0f} mcap. " + ("; ".join(x["hard"] + x["soft"]) or "All checks passed.")
+        hp = x.get("hold")
+        if hp and hp.get("enter"):
+            body += f" PLAN: out within {hp['window_min']} min" + (f", take +{hp['take_profit_pct']}%" if hp.get("take_profit_pct") else "") + "."
         level = {"GO": "go", "CAUTION": "caution"}.get(x["verdict"], "skip")
         notify(level, x["verdict"], f"{x['verdict']}: {sym}", body, tr["mint"])
         if x["verdict"] == "GO" and cfg["auto_paper"] and sid:
@@ -279,8 +285,12 @@ def coach_buy(tid):
         checks.append(("info", f"Own pick, no leader signal (your own picks so far: ${own['p']:+.2f} over {own['n']} trades)"))
     if dt.datetime.now(ET).hour in (7, 8):
         checks.append(("warn", "7-8 AM ET is the weakest hour for graduations"))
+    hp = holdplan.plan(x["verdict"], bool(x.get("model") and x["model"]["copier_ev"] > 0)) or \
+        holdplan.plan("CAUTION", False)                     # own picks get the general plan
+    if hp and hp.get("enter"):
+        checks.append(("info", "Hold plan: " + hp["text"]))
     g = _grade(checks)
-    an = dict(kind="buy", grade=g, verdict=x["verdict"], model=x.get("model"), checks=checks, at=time.time(),
+    an = dict(kind="buy", grade=g, verdict=x["verdict"], model=x.get("model"), checks=checks, at=time.time(), plan=hp,
               m={k: m.get(k) for k in ("mcap", "age_min", "trades_60s", "buyers_5m", "net_flow_5m", "range_5m",
                                        "dev_sold", "dev_holds_pct", "top3_holders", "top3_early")})
     store.update("trades", "id", tid, {"analysis": json.dumps(an)})
@@ -300,6 +310,11 @@ def coach_sell(tid):
     review = [("good" if t["pnl_usd"] > 0 else "bad", f"{t['pnl_usd']:+.2f} USD ({t['roi']:+.0%}) after ~${fee:.2f} in fees, held {hold:.1f} min")]
     if hold < 1:
         review.append(("warn", f"Held under a minute: fees took ~{fee / t['size_usd']:.0%} of the trade; your 5-min+ holds have done better"))
+    hp = an.get("plan") or {}
+    if hp.get("window_min"):
+        w = hp["window_min"]
+        review.append(("good" if hold <= w * 1.5 else "warn",
+                       f"Held {hold:.1f} min vs a {w}-min plan" + ("" if hold <= w * 1.5 else ": replays bled the longer coins were held")))
     if t["leader"]:
         ls = store.one("SELECT ts FROM signals WHERE wallet=? AND mint=? AND side='sell' AND ts>=? ORDER BY ts LIMIT 1", (t["leader"], t["mint"], t["opened_at"]))
         if ls:
@@ -464,6 +479,31 @@ def watch_loop():
         time.sleep(config.load()["poll_leaders_s"])
 
 
+def plan_exit(t, roi, age_min, mc):
+    """Apply the trade's hold plan. Paper trades exit; real trades get one alert per event."""
+    try:
+        hp = (json.loads(t["analysis"]) if t.get("analysis") else {}).get("plan") or {}
+    except Exception:
+        hp = {}
+    w, tp = hp.get("window_min"), hp.get("take_profit_pct")
+    if not w:
+        return False
+    event = None
+    if tp and roi * 100 >= tp:
+        event = ("tp", f"TAKE PROFIT {t['symbol']}: +{roi:.0%}", f"Your plan takes profit at +{tp}%. Sell now.")
+    elif age_min >= w:
+        event = ("window", f"EXIT {t['symbol']}: {w}-min hold window over", f"Position is {roi:+.0%} after {age_min:.0f} min. Replays bled after the window.")
+    if not event:
+        return False
+    if t["mode"] == "paper":
+        close_trade(t, "take profit" if event[0] == "tp" else f"{w}-min hold plan", mc)
+    elif (t["id"], event[0]) not in _alerted:
+        _alerted.add((t["id"], event[0]))
+        if not alerted_recently("EXIT", t["mint"], event[1]):
+            notify("exit", "EXIT", event[1], event[2], t["mint"])
+    return True
+
+
 def positions_loop():
     while True:
         try:
@@ -484,6 +524,8 @@ def positions_loop():
                         title = f"EXIT {t['symbol']}: disaster stop"
                         if not alerted_recently("EXIT", t["mint"], title):
                             notify("exit", "EXIT", title, f"Down {roi:.0%}. The -50% rule says sell now.", t["mint"])
+                elif plan_exit(t, roi, age_min, mc):
+                    pass
                 elif age_min >= cfg["time_stop_min"]:
                     if t["mode"] == "paper":
                         close_trade(t, "time stop", mc)
@@ -498,12 +540,29 @@ def positions_loop():
         time.sleep(config.load()["poll_positions_s"])
 
 
+def hold_refit_loop():
+    """Re-run tools/hold_fit.py every 6 hours so the hold plan keeps learning from new signals."""
+    import importlib.util, os as _os
+    path = _os.path.join(config.ROOT, "tools", "hold_fit.py")
+    while True:
+        try:
+            age = time.time() - _os.path.getmtime(holdplan.PATH) if _os.path.exists(holdplan.PATH) else 1e9
+            if age > 6 * 3600:
+                spec = importlib.util.spec_from_file_location("hold_fit", path)
+                mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+                mod.main()
+        except Exception:
+            log_error("hold_fit", traceback.format_exc(limit=2))
+        time.sleep(1800)
+
+
 def start():
     leaders.seed_from_results()
     last = store.one("SELECT MAX(updated_at) t FROM leaders WHERE source IN ('auto','lapsed')")
     if not last or not last["t"] or time.time() - last["t"] > 20 * 3600:
         leaders.refresh_async()
     threading.Thread(target=_safe, args=(retro_all,), daemon=True).start()
+    threading.Thread(target=hold_refit_loop, daemon=True).start()
     for _ in range(2):
         threading.Thread(target=_signal_worker, daemon=True).start()
     for fn in (watch_loop, me_loop, positions_loop):

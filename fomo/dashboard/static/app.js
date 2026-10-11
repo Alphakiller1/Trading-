@@ -137,6 +137,7 @@ function sigCard(s, fresh) {
       ${met("Dev holds", m.dev_holds_pct != null ? (m.dev_holds_pct * 100).toFixed(1) + "%" : "?")}${met("Top-3 now", m.top3_holders != null ? pct(m.top3_holders).replace("+", "") : "?")}${met("Vol 1h", kfmt(m.volume_1h))}${met("Bot dust", m.dust_share != null ? pct(m.dust_share).replace("+", "") : "—")}
     </div>
     <ul class="reasons">${hard.map((r) => `<li class="hard">${esc(r)}</li>`).join("")}${soft.map((r) => `<li>${esc(r)}</li>`).join("")}${hard.length + soft.length ? "" : "<li>All avoid-rule checks passed</li>"}${(x.info || []).map((r) => `<li class="info">${esc(r)}</li>`).join("")}</ul>
+    ${x.hold ? `<div class="holdline ${x.hold.enter ? "" : "no"}"><b>${x.hold.enter ? `Hold ≤ ${x.hold.window_min} min${x.hold.take_profit_pct ? ` · take +${x.hold.take_profit_pct}%` : ""} · no stop in window` : "Don't enter"}</b>${x.hold.enter ? `<span>replay ${pct(x.hold.expected_mean, 1)} mean · ${pct(x.hold.win).replace("+", "")} wins · n=${x.hold.n}</span>` : ""}</div>` : ""}
     ${soc ? `<div class="xsoc"><span>X: <b>${soc.n}</b> recent mentions</span><span><b>${soc.last_30m}</b> in 30m</span><span><b>${soc.authors}</b> authors</span><span>max followers <b>${(soc.max_followers || 0).toLocaleString()}</b></span>${soc.top && soc.top[0] ? `<span>top: @${esc(soc.top[0].user)}</span>` : ""}</div>` : ""}
     <div class="sig-act">
       <a href="https://fomo.family/tokens/solana/${esc(s.mint)}" target="_blank" rel="noopener" style="color:var(--p3);border-color:rgba(157,77,255,.5)">Open in fomo</a>
@@ -190,7 +191,10 @@ async function loadPositions() {
   $("#pos-sub").textContent = d.rows.length ? `${d.rows.length} open` : "";
   $("#positions").innerHTML = d.rows.length ? d.rows.map((t) => {
     const mins = (now - t.opened_at) / 60;
-    const warn = mins > 100 ? `<span class="down">time stop in ${Math.max(0, 120 - mins).toFixed(0)}m</span>` : "";
+    let plan = null; try { plan = (JSON.parse(t.analysis || "{}") || {}).plan; } catch { }
+    const left = plan && plan.window_min ? plan.window_min - mins : null;
+    const warn = left != null ? (left > 0 ? `<span class="${left < 2 ? "down" : "up"}">sell in ${left.toFixed(1)}m${plan.take_profit_pct ? ` or at +${plan.take_profit_pct}%` : ""}</span>` : `<span class="down">window over: sell</span>`)
+      : (mins > 100 ? `<span class="down">time stop in ${Math.max(0, 120 - mins).toFixed(0)}m</span>` : "");
     return `<div class="pos"><div><b>${esc(t.symbol)}</b><span class="tag-mode">${t.mode.toUpperCase()}</span>
       <div class="dim" style="font-size:12px">${usd(t.size_usd, 0)} at ${kfmt(t.entry_mcap)} → ${kfmt(t.last_mcap)} · ${mins.toFixed(0)}m ${warn}</div></div>
       <div class="r"><div class="${cls(t.upnl)}">${sgn(t.upnl)}</div><div class="dim" style="font-size:12px">${t.size_usd ? pct(t.upnl / t.size_usd) : ""}</div>
@@ -302,6 +306,7 @@ async function loadIntel() {
   }
   loadMe();
   loadMarket();
+  loadHold();
 }
 function drawHours(rows, nowH) {
   if (!rows.length) { $("#clockchart").innerHTML = '<div class="empty">No hourly data.</div>'; return; }
@@ -318,6 +323,29 @@ function drawHours(rows, nowH) {
   const cur = rows.find((r) => r.et === nowH);
   $("#clock-note").innerHTML = `Now (${nowH}:00 ET): <b>${cur ? cur.per1k : "—"}</b> graduations per 1k launches. Best: 5–7 PM and midnight–4 AM ET. Worst: 7–8 AM ET. Saturday is the best day; Wed/Thu the weakest.`;
 }
+async function loadHold() {
+  const d = await api("/api/hold").catch(() => null);
+  if (!d || d.pending) { $("#hold").innerHTML = '<div class="empty">No replay table yet: run tools/hold_fit.py (the engine runs it every 6 hours).</div>'; return; }
+  $("#hold-sub").textContent = `${d.signals} leader signals replayed at $${Math.round(d.size)} · copier enters ${d.delay_s}s after the leader · after fees`;
+  const H = [1, 2, 3, 5, 10, 15, 30, 60, 120];
+  const groups = [["positive_EV", "Positive-EV signals", "#9d4dff"], ["not_SKIP", "GO + CAUTION", "#dcc2ff"], ["SKIP", "SKIP (shown for contrast)", "#5f5d6b"]].filter(([g]) => d.groups[g]);
+  const W = 960, Hh = 240, p = 40;
+  const vals = groups.flatMap(([g]) => H.map((h) => (d.groups[g].rules["time_" + h + "m"] || {}).median).filter((v) => v != null));
+  const lo = Math.min(-0.3, ...vals), hi = Math.max(0.05, ...vals);
+  const X = (i) => p + (W - 2 * p) * i / (H.length - 1), Y = (v) => Hh - p - (Hh - 2 * p) * (v - lo) / (hi - lo);
+  const lines = groups.map(([g, , col]) => { const pts = H.map((h, i) => [i, (d.groups[g].rules["time_" + h + "m"] || {}).median]).filter((q) => q[1] != null);
+    return `<path d="${pts.map((q, k) => `${k ? "L" : "M"}${X(q[0]).toFixed(1)},${Y(q[1]).toFixed(1)}`).join(" ")}" fill="none" stroke="${col}" stroke-width="2.5"/>` +
+      pts.map((q) => `<circle cx="${X(q[0]).toFixed(1)}" cy="${Y(q[1]).toFixed(1)}" r="3.5" fill="${col}"/>`).join(""); }).join("");
+  const axis = H.map((h, i) => `<text x="${X(i)}" y="${Hh - 12}" text-anchor="middle" fill="#a3a1b3" font-size="15" font-family="JetBrains Mono">${h}m</text>`).join("");
+  const step = lo < -0.4 ? 0.2 : 0.1;
+  const ticks = []; for (let v = 0; v >= lo - 1e-9; v -= step) ticks.push(Math.round(v * 100) / 100);
+  const grid = ticks.map((v) => `<line x1="${p}" x2="${W - p}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v === 0 ? "#3a3a46" : "#19191f"}" ${v === 0 ? "" : 'stroke-dasharray="3 5"'}/><text x="${p - 6}" y="${Y(v) + 5}" text-anchor="end" fill="#6c6a7a" font-size="13" font-family="JetBrains Mono">${Math.round(v * 100)}%</text>`).join("");
+  const plan = (k, label) => { const q = d.plans[k]; return q ? `<div class="ev"><label>${label}</label><b>Hold ≤ ${q.window_min} min${q.take_profit_pct ? ` · TP +${q.take_profit_pct}%` : ""}</b><p>${esc(q.text)}</p></div>` : ""; };
+  $("#hold").innerHTML = `<div class="curve" style="height:250px"><svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none">${grid}${lines}${axis}</svg></div>
+    <div class="legend">${groups.map(([, l, c]) => `<span><i style="background:${c}"></i>${esc(l)}: median result if you sell after N minutes</span>`).join("")}</div>
+    <div class="evidence" style="margin-top:12px">${plan("positive_EV", "Your plan on positive-EV signals")}${plan("other", "Your plan on other GO / CAUTION signals")}</div>`;
+}
+
 async function loadMarket() {
   const d = await api("/api/market").catch(() => null);
   if (!d || d.pending) { $("#market").innerHTML = '<div class="empty">First scan running (about a minute)…</div>'; return; }

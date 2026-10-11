@@ -10,7 +10,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from core import config, store, pump, chain, intel, social, leaders, engine, market  # noqa: E402
+from core import config, store, pump, chain, intel, social, leaders, engine, market, holdplan  # noqa: E402
 
 PORT = int(os.environ.get("FOMO_DASH_PORT", "8777"))
 # The hosted interface on GitHub Pages may call this local engine; nothing else may (CORS).
@@ -287,6 +287,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json(x)
             if p == "/api/intel":
                 return self._json(intel_payload())
+            if p == "/api/hold":
+                d = holdplan._load()
+                if not d:
+                    return self._json({"pending": True})
+                return self._json(dict(d, plans={k: holdplan.plan(*v) for k, v in
+                                                 {"positive_EV": ("GO", True), "other": ("CAUTION", False)}.items()}))
             if p == "/api/market":
                 return self._json(market.latest() or {"pending": True})
             if p == "/api/me":

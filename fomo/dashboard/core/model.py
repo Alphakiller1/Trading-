@@ -5,7 +5,7 @@ ROI per cell; a copier earns that minus the copy penalty: round-trip cost at YOU
 drift. Small cells are shrunk toward a pessimistic prior so thin evidence can't produce a GO.
 """
 import json, os
-from . import config, pump
+from . import config, pump, store
 
 PATH = os.path.join(config.ROOT, "model", "ev_table.json")
 PRIOR, K, DRIFT = -0.05, 100, 0.015
@@ -37,12 +37,21 @@ def size_b(s):
     return "<$25" if s < 25 else ("$25-100" if s < 100 else "$100+")
 
 
+def your_size():
+    """Median of your last 20 real trades (what you actually bet), else the Settings trade size."""
+    rows = [r["size_usd"] for r in store.q("SELECT size_usd FROM trades WHERE mode='real' AND size_usd>0 ORDER BY opened_at DESC LIMIT 20")]
+    if len(rows) >= 5:
+        rows.sort()
+        return rows[len(rows) // 2]
+    return config.load()["trade_size_usd"]
+
+
 def ev(leader, mcap, leader_usd, size_usd=None):
     """Expected copier ROI for this signal, or None if the model can't place it."""
     d = _load()
     if not d or mcap is None or leader_usd is None or mcap >= 80000:
         return None
-    size_usd = size_usd or config.load()["trade_size_usd"]
+    size_usd = size_usd or your_size()
     cls = lclass(leader.get("closed_14d"), leader.get("roi_14d") or 0, leader.get("win_rate") or 0)
     cell = (cls, mcap_b(mcap), size_b(leader_usd))
     c = d["cells"].get("|".join(cell))
