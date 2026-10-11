@@ -30,6 +30,12 @@ def notify(level, kind, title, body="", mint=None):
 
 
 # ---------------------------------------------------------------- risk
+def alerted_recently(kind, mint, title, hours=12):
+    """Survives restarts: don't repeat the same alert for the same coin within `hours`."""
+    return bool(store.one("SELECT 1 x FROM alerts WHERE kind=? AND mint=? AND title=? AND ts>=?",
+                          (kind, mint, title, time.time() - hours * 3600)))
+
+
 def today_et():
     return dt.datetime.now(ET).date()
 
@@ -250,13 +256,17 @@ def positions_loop():
                         close_trade(t, f"disaster stop {roi:.0%}", mc)
                     elif (t["id"], "stop") not in _alerted:
                         _alerted.add((t["id"], "stop"))
-                        notify("exit", "EXIT", f"EXIT {t['symbol']}: down {roi:.0%}", "Disaster stop hit. Sell now.", t["mint"])
+                        title = f"EXIT {t['symbol']}: disaster stop"
+                        if not alerted_recently("EXIT", t["mint"], title):
+                            notify("exit", "EXIT", title, f"Down {roi:.0%}. The -50% rule says sell now.", t["mint"])
                 elif age_min >= cfg["time_stop_min"]:
                     if t["mode"] == "paper":
                         close_trade(t, "time stop", mc)
                     elif (t["id"], "time") not in _alerted:
                         _alerted.add((t["id"], "time"))
-                        notify("exit", "EXIT", f"EXIT {t['symbol']}: {cfg['time_stop_min']} min time stop", f"Position is {roi:+.0%}. The rule is to close it.", t["mint"])
+                        title = f"EXIT {t['symbol']}: {cfg['time_stop_min']} min time stop"
+                        if not alerted_recently("EXIT", t["mint"], title):
+                            notify("exit", "EXIT", title, f"Position is {roi:+.0%}. The rule is to close it.", t["mint"])
             check_kill()
         except Exception as e:
             log_error("positions", traceback.format_exc(limit=2))
