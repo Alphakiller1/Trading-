@@ -300,6 +300,9 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/leaders/import":
                 cands = [c for c in b.get("candidates", []) if re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]{32,44}", c.get("wallet", ""))]
                 return self._json({"started": leaders.import_async(cands[:400]), "n": len(cands)})
+            if p == "/api/leaders/import-chain":
+                cands = [c for c in b.get("candidates", []) if re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]{32,44}", c.get("wallet", ""))]
+                return self._json({"started": leaders.import_chain_async(cands[:400]), "n": len(cands)})
             if p == "/api/leaders/refresh":
                 return self._json({"started": leaders.refresh_async()})
             if p == "/api/settings":

@@ -3,7 +3,7 @@ closed 10+ sub-$80k pump.fun positions in the last 14 days with ROI > 20% and wi
 Same rule that held up in the day-level walk-forward (fomo/SMALL_TRADERS.md).
 """
 import collections, csv, datetime as dt, glob, json, os, statistics, threading, time
-from . import config, pump, store
+from . import config, pump, store, chain
 
 UNIVERSE = os.path.join(config.FOMO_DIR, "datasets", "small_wallet_universe.json")
 RESULTS = os.path.join(config.FOMO_DIR, "small_traders", "results")
@@ -138,3 +138,61 @@ def _import(cands):
         imp["added"] = added
     imp.update(running=False, msg=f"{added} of {len(cands)} fomo traders qualify")
     store.alert("info", "LEADERS", f"fomo leaderboard import: {added} of {len(cands)} qualify", "Added to Leaders with source 'fomo'.")
+
+
+def score_chain(wallet, max_sigs=150, now=None):
+    """Leader rule from the wallet's own on-chain trades (for fomo traders, whose trades pump.fun's
+    portfolio index doesn't see). Round trips = buys then a sell to ~zero balance, per coin."""
+    now = now or time.time()
+    sigs = [s for s in (chain.rpc("getSignaturesForAddress", [wallet, {"limit": max_sigs}]) or []) if not s.get("err")]
+    sol = pump.sol_price()
+    trades = [t for t in (chain.parse_trade(s["signature"], wallet, sol) for s in reversed(sigs)) if t]
+    if not trades:
+        return None
+    opn, rts, day_buys, max_buy = {}, [], collections.Counter(), 0.0
+    for t in trades:
+        if t["side"] == "buy":
+            o = opn.setdefault(t["mint"], dict(cost=0.0, proc=0.0, t0=t["ts"]))
+            o["cost"] += t["usd"]; max_buy = max(max_buy, t["usd"])
+            day_buys[dt.datetime.fromtimestamp(t["ts"]).date()] += t["usd"]
+        elif t["mint"] in opn:
+            o = opn[t["mint"]]; o["proc"] += t["usd"]
+            if t["remaining"] <= 1e-6:
+                o["t1"] = t["ts"]; rts.append(o); del opn[t["mint"]]
+    recent = [r for r in rts if r["t1"] >= now - 14 * 86400 and r["cost"] > 0]
+    cost = sum(r["cost"] for r in recent)
+    roi = (sum(r["proc"] for r in recent) - cost) / cost if cost else 0.0
+    win = sum(r["proc"] > r["cost"] for r in recent) / len(recent) if recent else 0.0
+    med = statistics.median(r["cost"] for r in recent) if recent else 0.0
+    small = max_buy <= 1000 and (max(day_buys.values()) if day_buys else 0) <= 5000
+    return dict(closed_14d=len(recent), roi_14d=roi, win_rate=win, median_size=med, median_mcap=None,
+                last_trade_at=trades[-1]["ts"], small=small, n_trades=len(trades),
+                qualified=small and len(recent) >= 10 and roi > 0.20 and win >= 0.40 and med >= 10)
+
+
+def import_chain_async(cands):
+    if imp["running"]:
+        return False
+    threading.Thread(target=_import_chain, args=(cands,), daemon=True).start()
+    return True
+
+
+def _import_chain(cands):
+    imp.update(running=True, done=0, total=len(cands), added=0, msg="Scoring fomo traders on-chain")
+    added = 0
+    for c in cands:
+        try:
+            s = score_chain(c["wallet"])
+            if s and s["qualified"]:
+                row = {k: s[k] for k in ("closed_14d", "roi_14d", "win_rate", "median_size", "median_mcap", "last_trade_at")}
+                row.update(updated_at=time.time(), label=c.get("label"), note=c.get("note"))
+                if store.one("SELECT 1 x FROM leaders WHERE wallet=?", (c["wallet"],)):
+                    store.update("leaders", "wallet", c["wallet"], row)
+                else:
+                    store.insert("leaders", row | {"wallet": c["wallet"], "enabled": 1, "source": "fomo"})
+                added += 1
+        except Exception as e:
+            imp["msg"] = f"error on {c['wallet'][:6]}: {e}"
+        imp["done"] += 1; imp["added"] = added
+    imp.update(running=False, msg=f"{added} of {len(cands)} fomo traders qualify (on-chain)")
+    store.alert("info", "LEADERS", f"fomo traders scored on-chain: {added} of {len(cands)} qualify", "Added to Leaders with source 'fomo'.")
