@@ -3,7 +3,7 @@ paper trader, raises exit alerts, auto-logs your real trades and enforces the da
 import datetime as dt, json, queue, threading, time, traceback
 from zoneinfo import ZoneInfo
 import requests
-from . import config, store, pump, chain, intel, social, leaders, model, holdplan
+from . import config, store, pump, chain, intel, social, leaders, model, holdplan, zones
 
 ET = ZoneInfo("America/New_York")
 state = {"started": time.time(), "last_cycle": 0.0, "watching": 0, "errors": [], "kill": {}}
@@ -186,6 +186,7 @@ def on_leader_trade(tr, leader):
         fast_alert(tr, leader, lag)
         x = intel.xray(tr["mint"], leader, tr["usd"])
         apply_model(x, leader, tr["usd"])
+        x["zone"] = zones.lookup(x["m"].get("age_min"), x["m"].get("mcap"))
         x["lag_s"] = round(lag, 1)
         x["detect"] = tr.get("via", "poll")
         if lag > LATE_S and x["verdict"] != "SKIP":
@@ -315,6 +316,10 @@ def coach_buy(tid):
         checks.append(("info", f"Own pick, no leader signal (your own picks so far: ${own['p']:+.2f} over {own['n']} trades)"))
     if dt.datetime.now(ET).hour in (7, 8):
         checks.append(("warn", "7-8 AM ET is the weakest hour for graduations"))
+    zn = zones.lookup(m.get("age_min"), mc)
+    if zn and zn.get("n"):
+        checks.append(("good" if zn["mean"] > 0 else "warn",
+                       f"Zone {zn['zone']}: replays {zn['mean']:+.1%} mean, {zn['win']:.0%} wins (n={zn['n']})"))
     hp = holdplan.plan(x["verdict"], bool(x.get("model") and x["model"]["copier_ev"] > 0)) or \
         holdplan.plan("CAUTION", False)                     # own picks get the general plan
     if hp and hp.get("enter"):
@@ -637,9 +642,10 @@ def hold_refit_loop():
         try:
             age = time.time() - _os.path.getmtime(holdplan.PATH) if _os.path.exists(holdplan.PATH) else 1e9
             if age > 6 * 3600:
-                spec = importlib.util.spec_from_file_location("hold_fit", path)
-                mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-                mod.main()
+                for name in ("hold_fit", "zone_fit"):
+                    spec = importlib.util.spec_from_file_location(name, _os.path.join(config.ROOT, "tools", name + ".py"))
+                    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+                    mod.main()
         except Exception:
             log_error("hold_fit", traceback.format_exc(limit=2))
         time.sleep(1800)

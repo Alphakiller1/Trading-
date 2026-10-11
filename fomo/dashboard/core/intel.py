@@ -85,7 +85,8 @@ def judge(m, leader=None, leader_usd=None, cfg=None):
     if m["top3_early"] is not None and m["top3_early"] > 0.60: hard.append(f"Bundled launch: top 3 wallets took {m['top3_early']:.0%} of early buys")
     if m["range_5m"] is not None and m["range_5m"] < 0.12: hard.append(f"5-min range only {m['range_5m']:.0%} (calm coins lost -13%)")
     if m.get("trades_seen") and m["trades_60s"] < 3: hard.append(f"Inactive: {m['trades_60s']} real trades in the last minute")
-    if m["age_min"] is not None and m["age_min"] < 1: hard.append("Fresh launch (< 1 min): early entries lost at app speed")
+    if m["age_min"] is not None and m["age_min"] < 5:
+        hard.append("Brand-new coin (< 5 min): replays -20% mean, 22% wins; first-minute entries lost 11-30% in research")
     if m["data_partial"]: soft.append("Trade data unavailable right now (pump.fun throttle): checks incomplete")
     info = []
     if m["dev_sold"] is None: info.append("Dev activity unknown")
