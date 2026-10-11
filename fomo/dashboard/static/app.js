@@ -122,7 +122,7 @@ function sigCard(s, fresh) {
   const img = m.image ? `<img src="${esc(m.image)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph'}))">` : '<div class="ph"></div>';
   return `<div class="sig ${esc(s.verdict)} ${fresh ? "fresh" : ""}">
     <div class="sig-top">${img}
-      <div class="sig-name"><b>${esc(s.symbol)}</b> <span class="dim">${esc(m.name || "")}</span>
+      <div class="sig-name"><b data-chart="${esc(s.mint)}">${esc(s.symbol)}</b> <span class="dim">${esc(m.name || "")}</span>
         <div class="meta">Leader <a class="mono" data-copy="${esc(s.wallet)}">${short(s.wallet)}</a>${L.roi_14d != null ? ` · 14d ROI ${pct(L.roi_14d)} · win ${pct(L.win_rate).replace("+", "")}` : ""} · bought ${usd(s.usd, 0)} · ${ago(s.ts)}</div></div>
       ${s.exit_seen ? '<span class="chip sold">LEADER SOLD</span>' : ""}
       <span class="score" title="Predictability score ${score}/5">${[0, 1, 2, 3, 4].map((i) => `<i class="${i < score ? "on" : ""}"></i>`).join("")}</span>
@@ -140,6 +140,7 @@ function sigCard(s, fresh) {
     ${x.hold ? `<div class="holdline ${x.hold.enter ? "" : "no"}"><b>${x.hold.enter ? `Hold ≤ ${x.hold.window_min} min${x.hold.take_profit_pct ? ` · take +${x.hold.take_profit_pct}%` : ""} · no stop in window` : "Don't enter"}</b>${x.hold.enter ? `<span>replay ${pct(x.hold.expected_mean, 1)} mean · ${pct(x.hold.win).replace("+", "")} wins · n=${x.hold.n}</span>` : ""}</div>` : ""}
     ${soc ? `<div class="xsoc"><span>X: <b>${soc.n}</b> recent mentions</span><span><b>${soc.last_30m}</b> in 30m</span><span><b>${soc.authors}</b> authors</span><span>max followers <b>${(soc.max_followers || 0).toLocaleString()}</b></span>${soc.top && soc.top[0] ? `<span>top: @${esc(soc.top[0].user)}</span>` : ""}</div>` : ""}
     <div class="sig-act">
+      <button class="tag" data-chart="${esc(s.mint)}" style="color:#fff;background:linear-gradient(180deg,#a35cff,#6a1fe0);border-color:rgba(220,194,255,.45)">Chart view</button>
       <a href="https://fomo.family/tokens/solana/${esc(s.mint)}" target="_blank" rel="noopener" style="color:var(--p3);border-color:rgba(157,77,255,.5)">Open in fomo</a>
       <button class="tag" data-copy="${esc(s.mint)}">Copy CA</button>
       <a href="https://pump.fun/coin/${esc(s.mint)}" target="_blank" rel="noopener">pump.fun</a>
@@ -195,7 +196,7 @@ async function loadPositions() {
     const left = plan && plan.window_min ? plan.window_min - mins : null;
     const warn = left != null ? (left > 0 ? `<span class="${left < 2 ? "down" : "up"}">sell in ${left.toFixed(1)}m${plan.take_profit_pct ? ` or at +${plan.take_profit_pct}%` : ""}</span>` : `<span class="down">window over: sell</span>`)
       : (mins > 100 ? `<span class="down">time stop in ${Math.max(0, 120 - mins).toFixed(0)}m</span>` : "");
-    return `<div class="pos"><div><b>${esc(t.symbol)}</b><span class="tag-mode">${t.mode.toUpperCase()}</span>
+    return `<div class="pos"><div><b data-chart="${esc(t.mint)}">${esc(t.symbol)}</b><span class="tag-mode">${t.mode.toUpperCase()}</span>
       <div class="dim" style="font-size:12px">${usd(t.size_usd, 0)} at ${kfmt(t.entry_mcap)} → ${kfmt(t.last_mcap)} · ${mins.toFixed(0)}m ${warn}</div></div>
       <div class="r"><div class="${cls(t.upnl)}">${sgn(t.upnl)}</div><div class="dim" style="font-size:12px">${t.size_usd ? pct(t.upnl / t.size_usd) : ""}</div>
       <button class="btn ghost sm" data-close="${t.id}" data-mode="${t.mode}" style="margin-top:4px">Close</button></div></div>`;
@@ -223,7 +224,7 @@ async function loadTrades() {
     (rows.length ? rows.map((t) => {
       const pnl = t.status === "open" ? t.upnl : t.pnl_usd;
       return `<tr><td class="mono">${new Date(t.opened_at * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
-      <td><b>${esc(t.symbol)}</b> <a class="dim" data-copy="${esc(t.mint)}">${short(t.mint)}</a></td>
+      <td><b data-chart="${esc(t.mint)}">${esc(t.symbol)}</b> <a class="dim" data-copy="${esc(t.mint)}">${short(t.mint)}</a></td>
       <td class="mono">${t.leader ? short(t.leader) : '<span class="dim">own idea</span>'}</td>
       <td class="num">${usd(t.size_usd, 0)}</td><td class="num">${kfmt(t.entry_mcap)}</td><td class="num">${kfmt(t.status === "open" ? t.last_mcap : t.exit_mcap)}</td>
       <td class="num ${cls(pnl)}">${sgn(pnl)}</td><td class="num ${cls(pnl)}">${t.size_usd ? pct(pnl / t.size_usd) : "—"}</td>
@@ -290,6 +291,89 @@ function openClose(id, mode) {
     try { await api("/api/trades/close", { id, ...f }); $("#modal").classList.remove("on"); refreshView(); } catch (err) { toast("Couldn't close", err.message, "risk"); }
   };
 }
+
+// ---------- in-dashboard coin chart ----------
+let chartTimer = null, chartObj = null;
+async function openChart(mint) {
+  $("#chartbox").classList.add("on");
+  $("#chart-h").innerHTML = '<span class="dim">Loading chart…</span>';
+  await drawChart(mint, true);
+  clearInterval(chartTimer);
+  chartTimer = setInterval(() => drawChart(mint, false), 15000);
+}
+function closeChart() {
+  $("#chartbox").classList.remove("on"); clearInterval(chartTimer); chartTimer = null;
+  if (chartObj) { chartObj.remove(); chartObj = null; }
+}
+$("#chartbox").onclick = (e) => { if (e.target.id === "chartbox") closeChart(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#chartbox").classList.contains("on")) closeChart(); });
+async function drawChart(mint, first) {
+  const d = await api("/api/chart?mint=" + encodeURIComponent(mint)).catch((e) => ({ error: e.message }));
+  if (d.error) { $("#chart-h").innerHTML = `<span class="down">${esc(d.error)}</span>`; return; }
+  const plan = d.plan, mv = d.model;
+  const planChip = plan && plan.enter ? `<span class="holdline"><b>Hold ≤ ${plan.window_min} min${plan.take_profit_pct ? ` · TP +${plan.take_profit_pct}%` : ""}</b></span>`
+    : plan ? `<span class="holdline no"><b>Don't enter</b></span>` : "";
+  $("#chart-h").innerHTML = `<b>${esc(d.symbol)}</b><span class="dim">${esc(d.name || "")}</span><span class="pill">${kfmt(d.mcap)} mcap</span>
+    ${d.verdict ? `<span class="chip ${esc(d.verdict)}">${esc(d.verdict)}</span>` : ""}
+    ${mv ? `<span class="chip ${mv.copier_ev > 0 ? "GO" : "EXIT"}">EV ${pct(mv.copier_ev, 1)}</span>` : ""}
+    ${planChip}<span class="grow"></span>
+    <a class="btn" href="https://fomo.family/tokens/solana/${esc(mint)}" target="_blank" rel="noopener">Open in fomo</a>
+    <button class="btn ghost" data-copy="${esc(mint)}">Copy CA</button><button class="btn ghost" id="chart-x">Close</button>`;
+  $("#chart-x").onclick = closeChart;
+  const reasons = (d.reasons || []).slice(0, 3).map((r) => esc(r)).join(" · ");
+  $("#chart-f").innerHTML = `<span class="k"><i style="background:#f6f3ff"></i>VWAP</span><span class="k"><i style="background:#9d4dff"></i>$10k / $25k / $45k levels</span>
+    <span class="k"><i style="background:#ff4d6d"></i>$80k max</span><span class="k">▲ leader buy · ▼ leader sell · ● you / paper</span>
+    ${reasons ? `<span class="dim">${reasons}</span>` : ""}${d.graduated ? `<span class="dim">Graduated: candles cover the bonding-curve phase</span>` : ""}`;
+  if (!window.LightweightCharts) { $("#chart-main").innerHTML = '<div class="empty">Chart library failed to load.</div>'; return; }
+  if (!d.bars.length) { $("#chart-main").innerHTML = '<div class="empty">No candles for this coin yet.</div>'; return; }
+  if (first || !chartObj) {
+    if (chartObj) chartObj.remove();
+    $("#chart-main").innerHTML = "";
+    chartObj = LightweightCharts.createChart($("#chart-main"), {
+      autoSize: true, layout: { background: { color: "#000000" }, textColor: "#a3a1b3", fontFamily: "JetBrains Mono" },
+      grid: { vertLines: { color: "#111116" }, horzLines: { color: "#111116" } },
+      rightPriceScale: { borderColor: "#26262f" },
+      timeScale: { borderColor: "#26262f", timeVisible: true, secondsVisible: false,
+                   tickMarkFormatter: (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+      crosshair: { mode: 0 },
+      localization: { priceFormatter: (v) => (v < 0 ? "" : kfmt(v)), timeFormatter: (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+    });
+    chartObj._candles = chartObj.addCandlestickSeries({ upColor: "#34d399", downColor: "#ff4d6d", borderVisible: false, wickUpColor: "#34d399", wickDownColor: "#ff4d6d" });
+    chartObj._candles.priceScale().applyOptions({ scaleMargins: { top: 0.06, bottom: 0.22 } });   // keep candles above the volume band
+    chartObj._vwap = chartObj.addLineSeries({ color: "#f6f3ff", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+    chartObj._vol = chartObj.addHistogramSeries({ priceScaleId: "", priceFormat: { type: "volume" }, color: "rgba(157,77,255,.35)" });
+    chartObj._vol.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    for (const [p, t] of d.levels) chartObj._candles.createPriceLine({ price: p, color: p >= 80000 ? "#ff4d6d" : "#9d4dff", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: t });
+    chartObj._tp = null;
+  }
+  chartObj._candles.setData(d.bars.map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
+  chartObj._vwap.setData(d.vwap);
+  chartObj._vol.setData(d.bars.map((b) => ({ time: b.time, value: b.volume, color: b.close >= b.open ? "rgba(52,211,153,.35)" : "rgba(255,77,109,.35)" })));
+  const t0 = d.bars[0].time, tN = d.bars[d.bars.length - 1].time, snap = (t) => Math.min(tN, Math.max(t0, Math.floor(t / 60) * 60));
+  const mk = [];
+  for (const s of d.signals) mk.push(s.side === "buy"
+    ? { time: snap(s.ts), position: "belowBar", color: "#9d4dff", shape: "arrowUp", text: `L $${Math.round(s.usd || 0)}` }
+    : { time: snap(s.ts), position: "aboveBar", color: "#ff4d6d", shape: "arrowDown", text: "L sold" });
+  let entry = null;
+  for (const t of d.trades) {
+    mk.push({ time: snap(t.opened_at), position: "belowBar", color: t.mode === "real" ? "#34d399" : "#dcc2ff", shape: "circle", text: `${t.mode === "real" ? "You" : "Paper"} $${Math.round(t.size_usd)}` });
+    if (t.closed_at) mk.push({ time: snap(t.closed_at), position: "aboveBar", color: (t.pnl_usd || 0) >= 0 ? "#34d399" : "#ff4d6d", shape: "circle", text: `${(t.pnl_usd || 0) >= 0 ? "+" : ""}${(t.pnl_usd || 0).toFixed(2)}` });
+    if (t.status === "open") entry = t;
+  }
+  const lastBuy = [...d.signals].reverse().find((s) => s.side === "buy");
+  const start = entry ? entry.opened_at : lastBuy ? lastBuy.ts + 30 : null;
+  if (chartObj._tp) { chartObj._candles.removePriceLine(chartObj._tp); chartObj._tp = null; }
+  if (plan && plan.enter && start) {
+    const end = start + plan.window_min * 60;
+    if (end <= tN + 60) mk.push({ time: snap(end), position: "aboveBar", color: "#fbbf24", shape: "square", text: `exit by (${plan.window_min}m)` });
+    const base = entry && entry.entry_mcap ? entry.entry_mcap : null;
+    if (base && plan.take_profit_pct) chartObj._tp = chartObj._candles.createPriceLine({ price: base * (1 + plan.take_profit_pct / 100), color: "#34d399", lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: `take profit +${plan.take_profit_pct}%` });
+  }
+  mk.sort((x, y) => x.time - y.time);
+  chartObj._candles.setMarkers(mk);
+  if (first) chartObj.timeScale().setVisibleLogicalRange({ from: Math.max(0, d.bars.length - 120), to: d.bars.length + 5 });
+}
+document.addEventListener("click", (e) => { const c = e.target.closest("[data-chart]"); if (c) { e.preventDefault(); openChart(c.dataset.chart); } });
 
 // ---------- intelligence ----------
 let intelLoaded = false;
@@ -366,7 +450,7 @@ async function loadMarket() {
     </div>
     <div><h4 class="mk-h">Most active coins, X-rayed</h4>
       <div class="table-wrap"><table class="tbl"><tr><th>Coin</th><th class="num">Mcap</th><th class="num">Trades/min</th><th class="num">Net 5m</th><th>Verdict</th><th></th></tr>
-      ${(x.coins || []).map((c) => `<tr title="${esc((c.why || []).join(" | "))}"><td><b>${esc(c.symbol)}</b></td><td class="num">${kfmt(c.mcap)}</td><td class="num">${c.trades_60s ?? "—"}</td><td class="num ${cls(c.net_flow_5m)}">${c.net_flow_5m != null ? sgn(c.net_flow_5m, 0) : "—"}</td><td><span class="chip ${esc(c.verdict)}">${esc(c.verdict)}</span></td><td><a href="https://fomo.family/tokens/solana/${esc(c.mint)}" target="_blank" rel="noopener">fomo</a></td></tr>`).join("")}
+      ${(x.coins || []).map((c) => `<tr title="${esc((c.why || []).join(" | "))}"><td><b>${esc(c.symbol)}</b></td><td class="num">${kfmt(c.mcap)}</td><td class="num">${c.trades_60s ?? "—"}</td><td class="num ${cls(c.net_flow_5m)}">${c.net_flow_5m != null ? sgn(c.net_flow_5m, 0) : "—"}</td><td><span class="chip ${esc(c.verdict)}">${esc(c.verdict)}</span></td><td><a data-chart="${esc(c.mint)}">chart</a> · <a href="https://fomo.family/tokens/solana/${esc(c.mint)}" target="_blank" rel="noopener">fomo</a></td></tr>`).join("")}
       </table></div></div>
   </div>`;
 }

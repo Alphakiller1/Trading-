@@ -180,6 +180,52 @@ def me():
     return out
 
 
+_chart_cache = {}
+
+
+def chart_data(mint):
+    """Everything the in-dashboard chart needs: 1-minute candles in market cap (pump.fun supply is
+    1B), session VWAP, the model levels, leader buys/sells, your trades, and the hold plan."""
+    hit = _chart_cache.get(mint)
+    if hit and time.time() - hit[0] < 20:
+        return hit[1]
+    c = pump.coin(mint) or {}
+    created = c.get("created_timestamp") or (time.time() - 6 * 3600) * 1000
+    start = max(created, (time.time() - 12 * 3600) * 1000)
+    raw = pump.get(f"{pump.SW}/v2/coins/{mint}/candles", dict(interval="1m", limit=1000, currency="USD", createdTs=int(start),
+                                                                program="pump", chainId=pump.CHAIN)) or []
+    bars, vwap, pv, vv = [], [], 0.0, 0.0
+    for b in raw if isinstance(raw, list) else []:
+        t = int(b["timestamp"]) // 1000
+        o, h, lo, cl = (float(b[k]) * 1e9 for k in ("open", "high", "low", "close"))
+        vol = float(b.get("volume") or 0)
+        pv += (h + lo + cl) / 3 * vol; vv += vol
+        bars.append(dict(time=t, open=o, high=h, low=lo, close=cl, volume=vol))
+        vwap.append(dict(time=t, value=pv / vv if vv else cl))
+    sigs = store.q("SELECT ts, side, wallet, usd, verdict, intel FROM signals WHERE mint=? AND role='leader' ORDER BY ts", (mint,))
+    trades = store.q("SELECT id, mode, opened_at, closed_at, size_usd, pnl_usd, entry_mcap, exit_mcap, status, analysis FROM trades WHERE mint=? ORDER BY opened_at", (mint,))
+    latest = next((s for s in reversed(sigs) if s["side"] == "buy" and s["verdict"] != "ADD"), None)
+    li = json.loads(latest["intel"] or "{}") if latest else {}
+    plan = None
+    for t in reversed(trades):
+        try:
+            plan = (json.loads(t["analysis"] or "{}") or {}).get("plan") or plan
+        except Exception:
+            pass
+        if plan:
+            break
+    plan = plan or li.get("hold")
+    out = dict(mint=mint, symbol=c.get("symbol") or mint[:6], name=c.get("name"), image=c.get("image_uri"), mcap=pump.mcap(mint),
+               graduated=bool(c.get("complete")), bars=bars, vwap=vwap,
+               levels=[[10000, "$10k: best entries below"], [25000, "$25k: edge fades above"], [45000, "$45k: graduation"], [80000, "$80k: your max"]],
+               signals=[dict(ts=s["ts"], side=s["side"], wallet=s["wallet"], usd=s["usd"], verdict=s["verdict"]) for s in sigs],
+               trades=[{k: t[k] for k in ("id", "mode", "opened_at", "closed_at", "size_usd", "pnl_usd", "entry_mcap", "exit_mcap", "status")} for t in trades],
+               verdict=latest["verdict"] if latest else None, model=li.get("model"), plan=plan,
+               reasons=(li.get("hard") or []) + (li.get("soft") or []))
+    _chart_cache[mint] = (time.time(), out)
+    return out
+
+
 EVIDENCE = [
     dict(k="Skill persists", v="+15.1%", d="Strict small-trader leaders on later days (95% CI +5.7% to +20.8%). Past losers: -6.1%."),
     dict(k="Copy penalty", v="-5 to -6 pts", d="What a copier loses vs the leader per trade: fees (3.5-6.3%) + 5-60s delay drift."),
@@ -287,6 +333,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json(x)
             if p == "/api/intel":
                 return self._json(intel_payload())
+            if p == "/api/chart":
+                mint = qs.get("mint", "").strip()
+                if not re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]{32,44}", mint):
+                    return self._json({"error": "bad mint"}, 400)
+                return self._json(chart_data(mint))
             if p == "/api/hold":
                 d = holdplan._load()
                 if not d:
