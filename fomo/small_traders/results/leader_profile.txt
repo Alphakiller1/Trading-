@@ -1,0 +1,12 @@
+
+## train ROI > 20%, win >= 40%, n >= 10 (positions opened since 2026-09-01): n=684, wallets=21
+  entry mcap  p25/median/p75: $5,146 / $9,084 / $21,478
+  size        p25/median/p75: $14 / $36 / $85
+  positions per active day: median 5.0, p90 15
+  outcome buckets: <=-50% 11% | -50..0 40% | 0..+50% 36% | +50..+200% 12% | >+200% 1%
+
+## all small wallets (baseline) (positions opened since 2026-09-01): n=54840, wallets=309
+  entry mcap  p25/median/p75: $6,700 / $10,971 / $18,424
+  size        p25/median/p75: $10 / $22 / $40
+  positions per active day: median 6.0, p90 30
+  outcome buckets: <=-50% 12% | -50..0 55% | 0..+50% 26% | +50..+200% 6% | >+200% 1%

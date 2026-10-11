@@ -16,6 +16,7 @@ Research and tooling for trading strategies.
 | Live: 7 of 7 picks fell 25–99% within minutes | RESEARCH.md scoreboard |
 | **Robust avoid rules:** dev sold, bundled launch (top-3 early buyers > 60%), volatility < 12%, buying fresh launches after a run | `cohort.py`, `tiers.py`, `dips.py` |
 | Peak/attention windows: 5–7 PM ET and midnight–4 AM ET; worst 7–8 AM ET | `chain_hours.py`, `hours.py` |
+| **Small traders (every trade ≤ $1k, every day ≤ $5k): skill persists across days.** Strict past winners made +15.1% (CI +5.7% to +20.8%) on later days, but copying costs about 5–6 points per trade, which leaves roughly +5% that depends on a few big trades. Paper only | [`fomo/SMALL_TRADERS.md`](fomo/SMALL_TRADERS.md), `small_traders/` |
 
 **Next step: collect multi-day data, then walk-forward everything.**
 

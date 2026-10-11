@@ -1,0 +1,39 @@
+
+## train ROI > 20%, win >= 40%, n >= 10: n=1424 wallets=34 ROI=+15.1% CI[+5.7%,+20.8%]
+   without top-3 earning wallets: +6.5%;  biggest wallet share of positions: 21%
+   2024..2025-07: n=   121 wallets=   2 ROI= +8.1% trim2%= +2.5% median=-36.7%
+   2025-07..2026-04: n=     6 wallets=   1 ROI=-13.5% trim2%=-13.5% median=-13.8%
+   2026-04..2026-09: n=   613 wallets=  15 ROI=+21.1% trim2%= +8.3% median= -7.3%
+   2026-09..2027: n=   684 wallets=  21 ROI=+10.7% trim2%= +6.2% median= -0.4%
+   entry mcap $0k-$10k: n=   845 ROI=+20.5% trim2%=+11.1%
+   entry mcap $10k-$25k: n=   296 ROI= +4.6% trim2%= -3.9%
+   entry mcap $25k-$80k: n=   283 ROI= +4.6% trim2%= +0.4%
+   leader size $0-50: n=   734 ROI= +3.7% trim2%= -3.0%
+   leader size $50-190: n=   643 ROI=+21.6% trim2%=+12.2%
+   leader size $190-1001: n=    47 ROI= +0.0% trim2%= +0.0%
+
+## train ROI > 0, n >= 10: n=36699 wallets=162 ROI=+5.4% CI[+3.8%,+7.0%]
+   without top-3 earning wallets: +4.3%;  biggest wallet share of positions: 6%
+   2024..2025-07: n=   617 wallets=   8 ROI= +6.0% trim2%= -2.1% median=-12.4%
+   2025-07..2026-04: n=  1362 wallets=  18 ROI= -3.2% trim2%=-11.4% median=-17.0%
+   2026-04..2026-09: n=  8211 wallets=  64 ROI= +7.5% trim2%= -0.1% median= -5.1%
+   2026-09..2027: n= 26509 wallets= 141 ROI= +4.9% trim2%= -1.8% median= -4.9%
+   entry mcap $0k-$10k: n= 19621 ROI= +6.3% trim2%= -0.9%
+   entry mcap $10k-$25k: n= 13293 ROI= +5.1% trim2%= -2.0%
+   entry mcap $25k-$80k: n=  3785 ROI= +1.4% trim2%= -4.9%
+   leader size $0-50: n= 28427 ROI= +3.5% trim2%= -4.5%
+   leader size $50-190: n=  7572 ROI= +5.9% trim2%= -0.5%
+   leader size $190-1001: n=   700 ROI= +9.2% trim2%= +1.5%
+
+## all small wallets (baseline): n=83472 wallets=313 ROI=+0.1% CI[-1.8%,+1.8%]
+   without top-3 earning wallets: -0.9%;  biggest wallet share of positions: 3%
+   2024..2025-07: n=  1695 wallets=  13 ROI= -0.0% trim2%= -7.8% median=-17.3%
+   2025-07..2026-04: n=  4957 wallets=  41 ROI= -6.9% trim2%=-14.3% median=-15.6%
+   2026-04..2026-09: n= 21980 wallets= 143 ROI= +1.5% trim2%= -5.8% median=-12.4%
+   2026-09..2027: n= 54840 wallets= 309 ROI= -0.0% trim2%= -7.0% median= -9.0%
+   entry mcap $0k-$10k: n= 39435 ROI= +2.9% trim2%= -4.5%
+   entry mcap $10k-$25k: n= 28969 ROI= -0.7% trim2%= -7.7%
+   entry mcap $25k-$80k: n= 15068 ROI= -5.2% trim2%=-11.5%
+   leader size $0-50: n= 69090 ROI= -2.9% trim2%=-10.5%
+   leader size $50-190: n= 13069 ROI= +1.8% trim2%= -5.0%
+   leader size $190-1001: n=  1313 ROI= +4.4% trim2%= -1.7%

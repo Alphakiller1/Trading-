@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 fomo/data/*.json
 fomo/data/*.log
+
+# small_traders data (re-fetchable)
+fomo/small_traders/disc/
+fomo/small_traders/tapes/
+fomo/small_traders/tapes_wf/
+fomo/small_traders/portfolios/
+fomo/small_traders/*.json
+fomo/small_traders/*.log

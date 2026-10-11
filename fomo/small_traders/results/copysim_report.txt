@@ -1,0 +1,38 @@
+=== Copy simulation on today's tapes (after 2026-10-11 00:00 UTC), $100 per trade ===
+
+all small wallets: 329 leaders
+  delay  5s: n= 224  mean   -6.9%  trim2%   -8.3%  median   -6.9%  win 29.0%  | leader's own mean   -1.1%  closed 125
+  delay 10s: n= 220  mean   -6.7%  trim2%   -8.0%  median   -5.7%  win 28.2%  | leader's own mean   -1.2%  closed 124
+  delay 30s: n= 211  mean   -6.6%  trim2%   -7.5%  median   -5.2%  win 27.5%  | leader's own mean   -1.6%  closed 124
+  delay 60s: n= 200  mean   -6.2%  trim2%   -7.0%  median   -5.0%  win 28.0%  | leader's own mean   -0.9%  closed 117
+
+train ROI > 0, n >= 10: 79 leaders
+  delay  5s: n=  56  mean  -10.5%  trim2%  -11.4%  median   -7.7%  win 19.6%  | leader's own mean   -4.3%  closed 38
+  delay 10s: n=  55  mean   -9.6%  trim2%  -10.5%  median   -7.1%  win 21.8%  | leader's own mean   -4.3%  closed 38
+  delay 30s: n=  53  mean  -10.2%  trim2%  -10.9%  median   -6.9%  win 18.9%  | leader's own mean   -5.3%  closed 38
+  delay 60s: n=  51  mean   -6.4%  trim2%   -7.1%  median   -4.7%  win 29.4%  | leader's own mean   -4.9%  closed 36
+
+train ROI > 20%, win >= 40%, n >= 10: 4 leaders
+  delay  5s: n=   2  mean  -13.6%  trim2%  -13.6%  median  -13.6%  win  0.0%  | leader's own mean   -4.1%  closed 0
+  delay 10s: n=   2  mean  -13.7%  trim2%  -13.7%  median  -13.7%  win  0.0%  | leader's own mean   -4.1%  closed 0
+  delay 30s: n=   2  mean  -12.7%  trim2%  -12.7%  median  -12.7%  win  0.0%  | leader's own mean   -4.1%  closed 0
+  delay 60s: n=   2  mean  -12.6%  trim2%  -12.6%  median  -12.6%  win 50.0%  | leader's own mean   -4.1%  closed 0
+=== Copy simulation on today's tapes (after 2026-10-11 00:00 UTC), $190 per trade ===
+
+all small wallets: 329 leaders
+  delay  5s: n= 224  mean   -6.1%  trim2%   -7.5%  median   -6.0%  win 30.4%  | leader's own mean   -1.1%  closed 125
+  delay 10s: n= 220  mean   -5.8%  trim2%   -7.2%  median   -4.8%  win 29.5%  | leader's own mean   -1.2%  closed 124
+  delay 30s: n= 211  mean   -5.7%  trim2%   -6.7%  median   -4.3%  win 31.3%  | leader's own mean   -1.6%  closed 124
+  delay 60s: n= 200  mean   -5.3%  trim2%   -6.1%  median   -4.1%  win 29.5%  | leader's own mean   -0.9%  closed 117
+
+train ROI > 0, n >= 10: 79 leaders
+  delay  5s: n=  56  mean   -9.6%  trim2%  -10.5%  median   -6.8%  win 21.4%  | leader's own mean   -4.3%  closed 38
+  delay 10s: n=  55  mean   -8.8%  trim2%   -9.6%  median   -6.2%  win 23.6%  | leader's own mean   -4.3%  closed 38
+  delay 30s: n=  53  mean   -9.3%  trim2%  -10.1%  median   -6.0%  win 22.6%  | leader's own mean   -5.3%  closed 38
+  delay 60s: n=  51  mean   -5.5%  trim2%   -6.3%  median   -3.8%  win 29.4%  | leader's own mean   -4.9%  closed 36
+
+train ROI > 20%, win >= 40%, n >= 10: 4 leaders
+  delay  5s: n=   2  mean  -12.7%  trim2%  -12.7%  median  -12.7%  win  0.0%  | leader's own mean   -4.1%  closed 0
+  delay 10s: n=   2  mean  -12.8%  trim2%  -12.8%  median  -12.8%  win  0.0%  | leader's own mean   -4.1%  closed 0
+  delay 30s: n=   2  mean  -11.8%  trim2%  -11.8%  median  -11.8%  win 50.0%  | leader's own mean   -4.1%  closed 0
+  delay 60s: n=   2  mean  -11.7%  trim2%  -11.7%  median  -11.7%  win 50.0%  | leader's own mean   -4.1%  closed 0
