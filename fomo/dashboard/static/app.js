@@ -124,6 +124,7 @@ function sigCard(s, fresh) {
     <div class="sig-top">${img}
       <div class="sig-name"><b data-chart="${esc(s.mint)}">${esc(s.symbol)}</b> <span class="dim">${esc(m.name || "")}</span>
         <div class="meta">Leader <a class="mono" data-copy="${esc(s.wallet)}">${short(s.wallet)}</a>${L.roi_14d != null ? ` · 14d ROI ${pct(L.roi_14d)} · win ${pct(L.win_rate).replace("+", "")}` : ""} · bought ${usd(s.usd, 0)} · ${ago(s.ts)}</div></div>
+      ${x.lag_s != null ? `<span class="chip ${x.lag_s <= 30 ? "GO" : x.lag_s <= 45 ? "CAUTION" : "EXIT"}" title="Seconds from the leader's buy to this signal (${esc(x.detect || "poll")}). Entries within 30s did best in replays.">${x.detect === "push" ? "⚡ " : ""}${Math.round(x.lag_s)}s after leader</span>` : ""}
       ${s.exit_seen ? '<span class="chip sold">LEADER SOLD</span>' : ""}
       <span class="score" title="Predictability score ${score}/5">${[0, 1, 2, 3, 4].map((i) => `<i class="${i < score ? "on" : ""}"></i>`).join("")}</span>
       ${x.model ? `<span class="chip ${x.model.copier_ev > 0 ? "GO" : "EXIT"}" title="Expected copier ROI after fees and delay at your size. Cell: ${esc(x.model.cell.join(" · "))}, n=${x.model.n}${x.model.test != null ? `, out-of-sample ${pct(x.model.test, 1)}` : ""}">EV ${pct(x.model.copier_ev, 1)}</span>` : ""}
