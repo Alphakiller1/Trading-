@@ -73,7 +73,10 @@ def state():
         unread=store.one("SELECT COUNT(*) n FROM alerts WHERE read=0")["n"],
         leaders=dict(active=store.one("SELECT COUNT(*) n FROM leaders WHERE enabled=1")["n"], job=leaders.job),
         health=dict(rpc_ok=chain.health["last_ok"], pump_ok=pump.health["last_ok"], pump_throttled_until=pump.health["throttled_until"],
-                    x=social.view(), last_cycle=engine.state["last_cycle"], cycle_s=engine.state.get("cycle_s"), watching=engine.state["watching"], errors=engine.state["errors"][-5:]),
+                    x=social.view(), last_cycle=engine.state["last_cycle"], cycle_s=engine.state.get("cycle_s"), watching=engine.state["watching"],
+                    ws=engine.state.get("ws"), ws_subs=engine.state.get("ws_subs"), ws_last=engine.state.get("ws_last"),
+                    ws_lag_median=(statistics.median(engine.state["ws_lags"]) if engine.state.get("ws_lags") else None),
+                    ws_notes=engine.state.get("ws_notes", 0), ws_trades=engine.state.get("ws_trades", 0), errors=engine.state["errors"][-5:]),
         settings=dict(trade_size_usd=cfg["trade_size_usd"], my_wallet=cfg["my_wallet"], auto_paper=cfg["auto_paper"]),
         market=(lambda m: dict(mood=m["mood"], at=m["at"]) if m else None)(market.latest()),
     )

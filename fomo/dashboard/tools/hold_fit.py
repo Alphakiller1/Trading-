@@ -34,7 +34,8 @@ def candles(mint, start_ms):
         raw = pump.get(f"{pump.SW}/v2/coins/{mint}/candles", dict(interval="1m", limit=1000, currency="USD", createdTs=int(start_ms),
                                                                     program="pump", chainId=pump.CHAIN))
         if isinstance(raw, list):
-            bars = [(int(b["timestamp"]) / 1000, float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"])) for b in raw]
+            bars = [(int(b["timestamp"]) / 1000, float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"])) for b in raw
+                    if all(b.get(k) is not None for k in ("timestamp", "open", "high", "low", "close"))]
             json.dump(dict(start=start_ms, fetched=time.time(), bars=bars), open(fn, "w"))
             return bars
     return None

@@ -150,6 +150,26 @@ def apply_model(x, leader, leader_usd):
         x.setdefault("info", []).insert(0, line)
 
 
+LATE_S = 45     # replays: alerts within 30s made +11.8%; 30-60s late -15.5%; 60s+ -13 to -16%
+
+
+def fast_alert(tr, leader, lag):
+    """Instant alert from the transaction alone (no pump.fun calls): leader, size, entry market cap
+    from the leader's own fill, and the model EV. Sent only when the buy could be a GO."""
+    try:
+        if tr["side"] != "buy" or not tr.get("tokens") or not str(tr["mint"]).endswith("pump"):
+            return
+        mc = tr["usd"] / tr["tokens"] * 1e9 if tr["usd"] else None
+        mv = model.ev(leader, mc, tr["usd"])
+        if not mc or not mv or mv["copier_ev"] <= 0 or lag > LATE_S:
+            return
+        notify("go", "FAST", f"FAST: leader bought {tr['mint'][:6]} ${tr['usd']:.0f} at ${mc:,.0f} mcap",
+               f"{lag:.0f}s after their buy · model EV {mv['copier_ev']:+.1%} · full X-ray verdict follows in seconds. "
+               f"Entries within 30s of the leader did best.", tr["mint"])
+    except Exception as ex:
+        log_error("fast_alert", ex)
+
+
 def on_leader_trade(tr, leader):
     cfg = config.load()
     c = pump.coin(tr["mint"]) or {}
@@ -162,8 +182,15 @@ def on_leader_trade(tr, leader):
             store.insert("signals", dict(ts=tr["ts"], wallet=leader["wallet"], role="leader", mint=tr["mint"], symbol=sym, side="buy",
                                          usd=tr["usd"], mcap=mc, verdict="ADD", score=None, reasons="[]", intel="{}", tx=tr["sig"]))
             return
+        lag = time.time() - (tr["ts"] or time.time())
+        fast_alert(tr, leader, lag)
         x = intel.xray(tr["mint"], leader, tr["usd"])
         apply_model(x, leader, tr["usd"])
+        x["lag_s"] = round(lag, 1)
+        x["detect"] = tr.get("via", "poll")
+        if lag > LATE_S and x["verdict"] != "SKIP":
+            x["soft"].append(f"LATE: detected {lag:.0f}s after the leader (entries 30s+ late lost 13-16% in replays)")
+            x["verdict"] = "CAUTION"
         x["hold"] = holdplan.plan(x["verdict"], bool(x.get("model") and x["model"]["copier_ev"] > 0))
         if x["verdict"] != "SKIP":
             x["social"] = social.mentions(sym, tr["mint"])
@@ -279,7 +306,10 @@ def coach_buy(tid):
         mv = x.get("model")
         ev = f", model EV {mv['copier_ev']:+.1%}" if mv else ""
         lvl = "bad" if sig["verdict"] == "SKIP" else ("good" if sig["verdict"] == "GO" else "warn")
-        checks.append((lvl, f"Copied leader {sig['wallet'][:6]} ({sig['verdict']} signal{ev}, {(t['opened_at'] - sig['ts']):.0f}s after their buy)"))
+        late = t["opened_at"] - sig["ts"]
+        checks.append((lvl, f"Copied leader {sig['wallet'][:6]} ({sig['verdict']} signal{ev}, {late:.0f}s after their buy)"))
+        if late > 60:
+            checks.append(("warn", f"Entered {late / 60:.1f} min after the leader: your entries within 1 min made +3.0%, 5+ min late -3.1% (paid ~23% more)"))
     else:
         own = store.one("SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(*) n FROM trades WHERE mode='real' AND status='closed' AND leader IS NULL")
         checks.append(("info", f"Own pick, no leader signal (your own picks so far: ${own['p']:+.2f} over {own['n']} trades)"))
@@ -448,6 +478,64 @@ def _signal_worker():
         _safe(on_leader_trade, tr, row)
 
 
+def _ws_url():
+    u = config.load()["rpc_url"]
+    return ("wss://" + u.split("://", 1)[1]) if u.startswith("https://") else u.replace("http://", "ws://")
+
+
+def ws_loop():
+    """Leader transactions pushed by the Solana node (logsSubscribe per wallet) instead of polled.
+    The poll loop stays as a slower backup; the 'seen' table de-duplicates the two."""
+    import asyncio, websockets
+
+    def handle(sig, w, row):
+        if store.one("SELECT 1 x FROM seen WHERE sig=?", (sig,)):
+            return
+        store.insert("seen", dict(sig=sig, wallet=w, ts=time.time()))
+        tr = chain.parse_trade(sig, w, pump.sol_price(), fresh=True)
+        if tr:
+            state["ws_trades"] = state.get("ws_trades", 0) + 1
+        if tr and time.time() - (tr["ts"] or 0) <= STALE_S:
+            tr["via"] = "push"
+            state["ws_lags"] = (state.get("ws_lags", []) + [round(time.time() - tr["ts"], 1)])[-50:]
+            _jobs.put((tr, row))
+
+    async def session():
+        rows = store.q("SELECT * FROM leaders WHERE enabled=1 AND (source='manual' OR COALESCE(median_size, 0) >= ?)",
+                       (config.load()["min_leader_median_usd"],))
+        by_id, subs = {}, {}
+        async with websockets.connect(_ws_url(), ping_interval=20, max_size=2 ** 22) as ws:
+            for i, r in enumerate(rows):
+                by_id[i + 1] = r
+                await ws.send(json.dumps({"jsonrpc": "2.0", "id": i + 1, "method": "logsSubscribe",
+                                          "params": [{"mentions": [r["wallet"]]}, {"commitment": "confirmed"}]}))
+            state.update(ws="connecting", ws_subs=0)
+            t0 = time.time()
+            while time.time() - t0 < 15 * 60:          # re-subscribe every 15 min to pick up leader changes
+                try:
+                    msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+                except asyncio.TimeoutError:
+                    continue
+                if "result" in msg and "id" in msg:
+                    subs[msg["result"]] = by_id.get(msg["id"])
+                    state.update(ws="live", ws_subs=len(subs))
+                elif msg.get("method") == "logsNotification":
+                    v = msg["params"]["result"]["value"]
+                    row = subs.get(msg["params"]["subscription"])
+                    if row and not v.get("err"):
+                        state["ws_last"] = time.time()
+                        state["ws_notes"] = state.get("ws_notes", 0) + 1
+                        threading.Thread(target=_safe, args=(handle, v["signature"], row["wallet"], row), daemon=True).start()
+
+    while True:
+        try:
+            asyncio.run(session())
+        except Exception as ex:
+            state["ws"] = "reconnecting"
+            log_error("ws", ex)
+            time.sleep(5)
+
+
 def watch_loop():
     while True:
         t0 = time.time()
@@ -476,7 +564,8 @@ def watch_loop():
             state["cycle_s"] = round(time.time() - t0, 1)
         except Exception:
             log_error("watch", traceback.format_exc(limit=2))
-        time.sleep(config.load()["poll_leaders_s"])
+        live = state.get("ws") == "live"
+        time.sleep(60 if live else config.load()["poll_leaders_s"])   # push feed live: polling is only a backup
 
 
 def plan_exit(t, roi, age_min, mc):
@@ -565,5 +654,5 @@ def start():
     threading.Thread(target=hold_refit_loop, daemon=True).start()
     for _ in range(2):
         threading.Thread(target=_signal_worker, daemon=True).start()
-    for fn in (watch_loop, me_loop, positions_loop):
+    for fn in (ws_loop, watch_loop, me_loop, positions_loop):
         threading.Thread(target=fn, daemon=True).start()

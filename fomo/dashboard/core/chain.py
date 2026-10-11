@@ -43,9 +43,17 @@ def signatures(wallet, limit=15):
     return rpc("getSignaturesForAddress", [wallet, {"limit": limit}]) or []
 
 
-def parse_trade(sig, wallet, sol_px):
-    """Returns a trade dict, or None if the tx didn't change the wallet's meme-token balance."""
-    tx = rpc("getTransaction", [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 1}])
+def parse_trade(sig, wallet, sol_px, fresh=False):
+    """Returns a trade dict, or None if the tx didn't change the wallet's meme-token balance.
+    fresh=True: the tx was just pushed to us, so read it at 'confirmed' (1-2s) instead of waiting
+    for 'finalized' (~13s), and retry briefly while the node catches up."""
+    opts = {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 1, "commitment": "confirmed"}
+    tx = None
+    for i in range(6 if fresh else 1):
+        tx = rpc("getTransaction", [sig, opts])
+        if tx:
+            break
+        time.sleep(0.7)
     if not tx or not tx.get("meta") or tx["meta"].get("err"):
         return None
     m = tx["meta"]
