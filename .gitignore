@@ -10,3 +10,6 @@ fomo/small_traders/tapes_wf/
 fomo/small_traders/portfolios/
 fomo/small_traders/*.json
 fomo/small_traders/*.log
+
+# dashboard runtime data: settings, sqlite, Edge profile, X cookies (never commit)
+fomo/dashboard/data/

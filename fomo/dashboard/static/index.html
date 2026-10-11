@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FOMO Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238b5cf6'/%3E%3Cpath d='M10 22V10h12M10 16h8' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="brand-mark"></span><div><b>FOMO</b><small>Command</small></div></div>
+    <nav id="nav">
+      <a data-view="command" class="on"><i>◆</i><span>Command</span></a>
+      <a data-view="signals"><i>⚡</i><span>Signals</span></a>
+      <a data-view="trades"><i>▤</i><span>Trade log</span></a>
+      <a data-view="intel"><i>◎</i><span>Intelligence</span></a>
+      <a data-view="leaders"><i>♛</i><span>Leaders</span></a>
+      <a data-view="settings"><i>⚙</i><span>Settings</span></a>
+    </nav>
+    <div class="health" id="health"></div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div class="top-l">
+        <div class="clock" id="clock">--</div>
+        <div class="window" id="window"></div>
+      </div>
+      <div class="top-r">
+        <div class="pill" id="sol">SOL --</div>
+        <div class="pill" id="kill"></div>
+        <div class="pill gate" id="gate"></div>
+        <button class="btn ghost" id="notif-btn" title="Enable desktop notifications">🔔 Enable alerts</button>
+        <button class="bell" id="bell" title="Alerts"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><b id="unread">0</b></button>
+      </div>
+    </header>
+
+    <!-- COMMAND -->
+    <section class="view on" id="v-command">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid-cmd">
+        <div class="card">
+          <div class="card-h"><h2>Live signals</h2><span class="sub">Leader first-buys, scored against the avoid rules</span></div>
+          <div id="feed" class="feed"></div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <div class="card-h"><h2>Open positions</h2><span class="sub" id="pos-sub"></span></div>
+            <div id="positions"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h2>Alert stream</h2><button class="link" id="mark-read">Mark read</button></div>
+            <div id="alerts" class="alerts"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIGNALS -->
+    <section class="view" id="v-signals">
+      <div class="card">
+        <div class="card-h"><h2>Signal history</h2>
+          <div class="seg" id="sig-filter"><a class="on" data-v="">All</a><a data-v="GO">GO</a><a data-v="CAUTION">Caution</a><a data-v="SKIP">Skip</a></div>
+        </div>
+        <div id="sig-list" class="feed"></div>
+      </div>
+    </section>
+
+    <!-- TRADES -->
+    <section class="view" id="v-trades">
+      <div class="row-h">
+        <div class="seg" id="mode-seg"><a class="on" data-v="real">Real</a><a data-v="paper">Paper</a></div>
+        <button class="btn" id="log-btn">+ Log trade</button>
+      </div>
+      <div class="kpis" id="tstats"></div>
+      <div class="card">
+        <div class="card-h"><h2>Equity curve</h2><span class="sub">Cumulative realized P&amp;L</span></div>
+        <div id="curve" class="curve"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Trades</h2><span class="sub">Real trades log themselves from your wallet; paper trades from GO signals</span></div>
+        <div class="table-wrap"><table class="tbl" id="trade-tbl"></table></div>
+      </div>
+    </section>
+
+    <!-- INTELLIGENCE -->
+    <section class="view" id="v-intel">
+      <div class="card">
+        <div class="card-h"><h2>Coin X-ray</h2><span class="sub">Paste any pump.fun token address</span></div>
+        <form class="xray-form" id="xray-form"><input id="xray-in" placeholder="Token address (…pump)" autocomplete="off"><button class="btn">Scan</button></form>
+        <div id="xray-out"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h"><h2>Market clock</h2><span class="sub">Graduations per 1k launches by ET hour (7 days on-chain)</span></div>
+          <div id="clockchart" class="hours"></div>
+          <div class="note" id="clock-note"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Cost of a round trip</h2><span class="sub">fomo fee + pump.fun 1.25%/side + curve slippage</span></div>
+          <div id="fees" class="fees"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Your edge report</h2><span class="sub" id="me-sub"></span></div>
+        <div id="me"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h"><h2>What the data says</h2></div>
+          <div id="evidence" class="evidence"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>The rules</h2></div>
+          <ol id="rules" class="rules"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEADERS -->
+    <section class="view" id="v-leaders">
+      <div class="card">
+        <div class="card-h"><h2>Leader wallets</h2>
+          <div class="row-gap"><span class="sub" id="ljob"></span><button class="btn ghost" id="lrefresh">Re-score leaders</button></div>
+        </div>
+        <p class="note">Rule: every position ≤ $1k, every day ≤ $5k, not a launch sniper, and in the last 14 days 10+ closed sub-$80k positions with ROI &gt; 20% and win rate ≥ 40%. Re-scored daily from closed positions only.</p>
+        <form class="add-form" id="add-leader"><input id="add-w" placeholder="Add a wallet to watch (Solana address)"><input id="add-l" placeholder="Label (optional)"><button class="btn">Add</button></form>
+        <div class="table-wrap"><table class="tbl" id="leader-tbl"></table></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="v-settings">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h"><h2>Risk and sizing</h2></div>
+          <form id="set-risk" class="form"></form>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Connections</h2></div>
+          <form id="set-conn" class="form"></form>
+          <div class="note" id="conn-note"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal"><div class="modal-box" id="modal-box"></div></div>
+<div class="toasts" id="toasts"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

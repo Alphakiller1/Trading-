@@ -1,0 +1,3 @@
+requests
+twikit          # optional: X mentions on signals (needs your X auth_token + ct0 in Settings)
+playwright      # optional: tools/browser_login.py

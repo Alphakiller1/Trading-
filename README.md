@@ -18,6 +18,8 @@ Research and tooling for trading strategies.
 | Peak/attention windows: 5–7 PM ET and midnight–4 AM ET; worst 7–8 AM ET | `chain_hours.py`, `hours.py` |
 | **Small traders (every trade ≤ $1k, every day ≤ $5k): skill persists across days.** Strict past winners made +15.1% (CI +5.7% to +20.8%) on later days, but copying costs about 5–6 points per trade, which leaves roughly +5% that depends on a few big trades. Paper only | [`fomo/SMALL_TRADERS.md`](fomo/SMALL_TRADERS.md), `small_traders/` |
 
+**Dashboard:** [`fomo/dashboard/`](fomo/dashboard/) (double-click `run_dashboard.bat`). A black-and-purple local command center with live leader signals scored against the avoid rules, desktop and Discord alerts, a paper trader, a trade log that imports your real fomo trades from your wallet, and an edge report. It never places trades.
+
 **Next step: collect multi-day data, then walk-forward everything.**
 
 ```bash
