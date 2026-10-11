@@ -3,7 +3,7 @@ paper trader, raises exit alerts, auto-logs your real trades and enforces the da
 import datetime as dt, json, threading, time, traceback
 from zoneinfo import ZoneInfo
 import requests
-from . import config, store, pump, chain, intel, social, leaders
+from . import config, store, pump, chain, intel, social, leaders, model
 
 ET = ZoneInfo("America/New_York")
 state = {"started": time.time(), "last_cycle": 0.0, "watching": 0, "errors": [], "kill": {}}
@@ -46,24 +46,29 @@ def _day_start():
 
 
 def risk(mode):
-    cfg = config.load()
     t0 = _day_start()
-    opened = store.q("SELECT size_usd FROM trades WHERE mode=? AND opened_at>=?", (mode, t0))
-    closed = store.q("SELECT pnl_usd FROM trades WHERE mode=? AND status='closed' AND closed_at>=? ORDER BY closed_at", (mode, t0))
+    opened = [r["size_usd"] or 0 for r in store.q("SELECT size_usd FROM trades WHERE mode=? AND opened_at>=?", (mode, t0))]
+    closed = [r["pnl_usd"] or 0 for r in store.q("SELECT pnl_usd FROM trades WHERE mode=? AND status='closed' AND closed_at>=? ORDER BY closed_at", (mode, t0))]
+    return risk_from(opened, closed, config.load())
+
+
+def risk_from(opened, closed, cfg):
+    """Pure kill-switch / cap logic (unit-tested in tools/verify.py).
+    opened: today's entry sizes; closed: today's realized P&L in close order."""
     streak = 0
-    for r in reversed(closed):
-        if (r["pnl_usd"] or 0) < 0:
+    for p in reversed(closed):
+        if p < 0:
             streak += 1
         else:
             break
-    day_pnl = sum(r["pnl_usd"] or 0 for r in closed)
+    day_pnl = sum(closed)
     limit = cfg["daily_loss_limit_pct"] / 100 * cfg["daily_buy_cap_usd"]
     reasons = []
     if streak >= cfg["loss_streak_limit"]:
         reasons.append(f"{streak} losses in a row")
     if day_pnl <= -limit:
         reasons.append(f"day P&L ${day_pnl:,.0f} hit the -${limit:,.0f} limit")
-    buys = sum(r["size_usd"] or 0 for r in opened)
+    buys = sum(opened)
     return dict(entries=len(opened), max_entries=cfg["max_entries_per_day"], buys_usd=round(buys, 2),
                 cap_usd=cfg["daily_buy_cap_usd"], day_pnl=round(day_pnl, 2), loss_limit=round(limit, 2),
                 streak=streak, killed=bool(reasons), reasons=reasons,
@@ -128,6 +133,21 @@ def _safe(fn, *a):
 
 
 # ---------------------------------------------------------------- leader + own trades
+def apply_model(x, leader, leader_usd):
+    """Walk-forward EV gate: GO needs a positive expected copier ROI at your size."""
+    mv = model.ev(leader, x["m"].get("mcap"), leader_usd)
+    x["model"] = mv
+    if not mv or x["verdict"] == "SKIP":
+        return
+    cls, mb, sb = mv["cell"]
+    line = f"Model: {mv['copier_ev']:+.1%} expected after costs at your size ({cls} leader, {mb} mcap, {sb} buy; n={mv['n']})"
+    if mv["copier_ev"] <= 0:
+        x["soft"].append(line)
+        x["verdict"] = "CAUTION"
+    else:
+        x.setdefault("info", []).insert(0, line)
+
+
 def on_leader_trade(tr, leader):
     cfg = config.load()
     c = pump.coin(tr["mint"]) or {}
@@ -141,6 +161,7 @@ def on_leader_trade(tr, leader):
                                          usd=tr["usd"], mcap=mc, verdict="ADD", score=None, reasons="[]", intel="{}", tx=tr["sig"]))
             return
         x = intel.xray(tr["mint"], leader, tr["usd"])
+        apply_model(x, leader, tr["usd"])
         if x["verdict"] != "SKIP":
             x["social"] = social.mentions(sym, tr["mint"])
         sid = store.insert("signals", dict(ts=tr["ts"], wallet=leader["wallet"], role="leader", mint=tr["mint"], symbol=sym, side="buy",

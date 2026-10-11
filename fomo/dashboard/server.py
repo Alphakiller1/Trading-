@@ -73,7 +73,7 @@ def state():
         unread=store.one("SELECT COUNT(*) n FROM alerts WHERE read=0")["n"],
         leaders=dict(active=store.one("SELECT COUNT(*) n FROM leaders WHERE enabled=1")["n"], job=leaders.job),
         health=dict(rpc_ok=chain.health["last_ok"], pump_ok=pump.health["last_ok"], pump_throttled_until=pump.health["throttled_until"],
-                    x=social.status, last_cycle=engine.state["last_cycle"], watching=engine.state["watching"], errors=engine.state["errors"][-5:]),
+                    x=social.view(), last_cycle=engine.state["last_cycle"], watching=engine.state["watching"], errors=engine.state["errors"][-5:]),
         settings=dict(trade_size_usd=cfg["trade_size_usd"], my_wallet=cfg["my_wallet"], auto_paper=cfg["auto_paper"]),
     )
 

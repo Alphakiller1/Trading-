@@ -1,6 +1,6 @@
-"""Leader list: small wallets (every position <= $1k, every day <= $5k, not launch snipers) that
-closed 10+ sub-$80k pump.fun positions in the last 14 days with ROI > 20% and win rate >= 40%.
-Same rule that held up in the day-level walk-forward (fomo/SMALL_TRADERS.md).
+"""Leader list: small wallets (every position <= $1k, every day <= $5k, not launch snipers, median
+trade >= $10) that closed 10+ sub-$80k pump.fun positions in the last 14 days at a profit.
+Which of their buys to copy is decided per signal by the walk-forward EV model (core/model.py).
 """
 import collections, csv, datetime as dt, glob, json, os, statistics, threading, time
 from . import config, pump, store, chain
@@ -49,7 +49,9 @@ def score_wallet(positions, now=None):
                 median_size=statistics.median(r["bought"] for r in tr) if tr else None,
                 median_mcap=statistics.median(r["mcap"] for r in tr) if tr else None,
                 last_trade_at=last.timestamp() if last else None,
-                qualified=small and not sniper and len(tr) >= 10 and roi > 0.20 and win >= 0.40
+                # watch any small, profitable, non-bot wallet; the EV model (core/model.py) decides
+                # which of its buys are worth copying (strict-only watching missed the best cell)
+                qualified=small and not sniper and len(tr) >= 10 and roi > 0
                 and statistics.median(r["bought"] for r in tr) >= 10)   # sub-$10 "traders" are bots
 
 
@@ -167,7 +169,7 @@ def score_chain(wallet, max_sigs=150, now=None):
     small = max_buy <= 1000 and (max(day_buys.values()) if day_buys else 0) <= 5000
     return dict(closed_14d=len(recent), roi_14d=roi, win_rate=win, median_size=med, median_mcap=None,
                 last_trade_at=trades[-1]["ts"], small=small, n_trades=len(trades),
-                qualified=small and len(recent) >= 10 and roi > 0.20 and win >= 0.40 and med >= 10)
+                qualified=small and len(recent) >= 10 and roi > 0 and med >= 10)
 
 
 def import_chain_async(cands):

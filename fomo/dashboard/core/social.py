@@ -19,6 +19,13 @@ _worker = None
 _lock = threading.Lock()
 
 
+def view():
+    """Status for the UI: 'ready' when a session is saved but no search has run yet."""
+    if status["state"] == "off" and config.load().get("x_enabled") and os.path.exists(COOKIES):
+        return dict(status, state="ready", detail="Session saved; searches on the next signal")
+    return status
+
+
 def reset():
     """Pick up new cookies: restart the browser worker."""
     global _worker

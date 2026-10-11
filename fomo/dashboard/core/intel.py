@@ -4,7 +4,7 @@ SKIP rules held up in every test (dev sold, bundled launch, dead-calm coin, inac
 fresh launch). CAUTION flags things the research couldn't confirm or that underperformed.
 """
 import time, collections
-from . import pump, config
+from . import pump, config, chain
 
 
 def xray(mint, leader=None, leader_usd=None):
@@ -52,20 +52,49 @@ def xray(mint, leader=None, leader_usd=None):
     else:
         m["top3_early"] = None
     m["leader_usd"] = leader_usd
+    # live on-chain facts that stay known even when the tape can't reach launch
+    m["dev_holds_pct"], m["top3_holders"] = None, None
+    try:
+        if m["creator"]:
+            acc = (chain.rpc("getTokenAccountsByOwner", [m["creator"], {"mint": mint}, {"encoding": "jsonParsed"}], tries=2) or {}).get("value", [])
+            held = sum(float(a["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmount"] or 0) for a in acc)
+            m["dev_holds_pct"] = held / 1e9
+            if m["dev_sold"] is None and held > 0:
+                m["dev_sold"] = False
+        big = (chain.rpc("getTokenLargestAccounts", [mint], tries=2) or {}).get("value", [])
+        curve = c.get("associated_bonding_curve")
+        others = sorted((float(x.get("uiAmount") or 0) for x in big if x.get("address") != curve), reverse=True)
+        if others:
+            m["top3_holders"] = sum(others[:3]) / 1e9
+    except Exception:
+        pass
 
+    hard, soft, score, info = judge(m, leader, leader_usd, cfg)
+    verdict = "SKIP" if hard else ("CAUTION" if soft else "GO")
+    return dict(mint=mint, verdict=verdict, score=score, hard=hard, soft=soft, info=info, m=m, ts=now)
+
+
+def judge(m, leader=None, leader_usd=None, cfg=None):
+    """Pure verdict logic (unit-tested in tools/verify.py). Returns (hard, soft, score)."""
+    cfg = cfg or config.load()
+    tw = m.get("twitter") or ""
     hard, soft = [], []
-    if m["banned"]: hard.append("Coin is banned on pump.fun")
+    if m.get("banned"): hard.append("Coin is banned on pump.fun")
     if m["mcap"] and m["mcap"] >= cfg["max_mcap_usd"]: hard.append(f"Market cap ${m['mcap']:,.0f} is above your ${cfg['max_mcap_usd']:,.0f} limit")
     if m["dev_sold"] is True: hard.append("Dev has sold (buying after a dev dump averaged -19%)")
     if m["top3_early"] is not None and m["top3_early"] > 0.60: hard.append(f"Bundled launch: top 3 wallets took {m['top3_early']:.0%} of early buys")
     if m["range_5m"] is not None and m["range_5m"] < 0.12: hard.append(f"5-min range only {m['range_5m']:.0%} (calm coins lost -13%)")
-    if tr and m["trades_60s"] < 3: hard.append(f"Inactive: {m['trades_60s']} real trades in the last minute")
+    if m.get("trades_seen") and m["trades_60s"] < 3: hard.append(f"Inactive: {m['trades_60s']} real trades in the last minute")
     if m["age_min"] is not None and m["age_min"] < 1: hard.append("Fresh launch (< 1 min): early entries lost at app speed")
     if m["data_partial"]: soft.append("Trade data unavailable right now (pump.fun throttle): checks incomplete")
-    if m["dev_sold"] is None: soft.append("Dev activity unknown (history too long to scan)")
-    if m["top3_early"] is None and not m["data_partial"]: soft.append("Launch concentration unknown")
+    info = []
+    if m["dev_sold"] is None: info.append("Dev activity unknown")
+    if m["top3_early"] is None and not m["data_partial"]: info.append("Launch concentration unknown (coin too busy to scan to launch)")
+    if m.get("dev_holds_pct") is not None: info.append(f"Dev holds {m['dev_holds_pct']:.1%} of supply")
+    if m.get("top3_holders") is not None:
+        if m["top3_holders"] > 0.30: soft.append(f"Top 3 holders own {m['top3_holders']:.0%} of supply (outside the curve)")
+        else: info.append(f"Top 3 holders own {m['top3_holders']:.0%} of supply")
     if m["graduated"]: soft.append("Graduated off the bonding curve: outside the tested range")
-    tw = m["twitter"] or ""
     if "/status/" in tw: soft.append("Tweet-linked news coin (copycats split attention; underperformed)")
     if not (m["website"] or m["telegram"] or (tw and "/status/" not in tw)): soft.append("No real socials")
     if leader_usd is not None and leader_usd < 20: soft.append(f"Leader bought only ${leader_usd:.0f}")
@@ -77,5 +106,4 @@ def xray(mint, leader=None, leader_usd=None):
     if m["dev_sold"] is False: score += 1
     if leader and (leader.get("closed_14d") or 0) >= 5: score += 1
     if m["website"] or m["telegram"] or (tw and "/status/" not in tw): score += 1
-    verdict = "SKIP" if hard else ("CAUTION" if soft else "GO")
-    return dict(mint=mint, verdict=verdict, score=score, hard=hard, soft=soft, m=m, ts=now)
+    return hard, soft, score, info

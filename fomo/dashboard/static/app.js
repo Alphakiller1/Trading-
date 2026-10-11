@@ -89,7 +89,7 @@ async function loadState() {
   $("#health").innerHTML = `
     <div><span class="dot ${d(now - h.rpc_ok < 90)}"></span>Solana RPC</div>
     <div><span class="dot ${h.pump_throttled_until > now ? "warn" : d(now - h.pump_ok < 180, true)}"></span>pump.fun ${h.pump_throttled_until > now ? "(cooling down)" : ""}</div>
-    <div><span class="dot ${h.x.state === "on" ? "ok" : h.x.state === "error" ? "bad" : ""}"></span>X ${h.x.state === "on" ? "connected" : "off"}</div>
+    <div><span class="dot ${h.x.state === "on" || h.x.state === "ready" ? "ok" : h.x.state === "error" ? "bad" : ""}"></span>X ${h.x.state === "on" ? "connected" : h.x.state === "ready" ? "ready" : h.x.state === "error" ? "error" : "off"}</div>
     <div><span class="dot ${d(now - h.last_cycle < 120)}"></span>Watching ${h.watching} wallets</div>`;
   if (view === "command") renderKpis();
 }
@@ -123,6 +123,7 @@ function sigCard(s, fresh) {
         <div class="meta">Leader <a class="mono" data-copy="${esc(s.wallet)}">${short(s.wallet)}</a>${L.roi_14d != null ? ` · 14d ROI ${pct(L.roi_14d)} · win ${pct(L.win_rate).replace("+", "")}` : ""} · bought ${usd(s.usd, 0)} · ${ago(s.ts)}</div></div>
       ${s.exit_seen ? '<span class="chip sold">LEADER SOLD</span>' : ""}
       <span class="score" title="Predictability score ${score}/5">${[0, 1, 2, 3, 4].map((i) => `<i class="${i < score ? "on" : ""}"></i>`).join("")}</span>
+      ${x.model ? `<span class="chip ${x.model.copier_ev > 0 ? "GO" : "EXIT"}" title="Expected copier ROI after fees and delay at your size. Cell: ${esc(x.model.cell.join(" · "))}, n=${x.model.n}${x.model.test != null ? `, out-of-sample ${pct(x.model.test, 1)}` : ""}">EV ${pct(x.model.copier_ev, 1)}</span>` : ""}
       <span class="chip ${esc(s.verdict)}">${esc(s.verdict)}</span>
     </div>
     <div class="metrics">
@@ -130,12 +131,12 @@ function sigCard(s, fresh) {
       ${met("Trades/min", m.trades_60s ?? "—")}${met("Buyers 5m", m.buyers_5m ?? "—")}
       ${met("Net flow 5m", m.net_flow_5m != null ? `<span class="${cls(m.net_flow_5m)}">${sgn(m.net_flow_5m, 0)}</span>` : "—")}${met("Range 5m", m.range_5m != null ? pct(m.range_5m).replace("+", "") : "—")}
       ${met("Top-3 early", m.top3_early != null ? pct(m.top3_early).replace("+", "") : "?")}${met("Dev sold", dev)}
-      ${met("ATH", kfmt(m.ath))}${met("Vol 1h", kfmt(m.volume_1h))}${met("Bot dust", m.dust_share != null ? pct(m.dust_share).replace("+", "") : "—")}${met("Replies", m.replies ?? "—")}
+      ${met("Dev holds", m.dev_holds_pct != null ? (m.dev_holds_pct * 100).toFixed(1) + "%" : "?")}${met("Top-3 now", m.top3_holders != null ? pct(m.top3_holders).replace("+", "") : "?")}${met("Vol 1h", kfmt(m.volume_1h))}${met("Bot dust", m.dust_share != null ? pct(m.dust_share).replace("+", "") : "—")}
     </div>
-    ${hard.length + soft.length ? `<ul class="reasons">${hard.map((r) => `<li class="hard">${esc(r)}</li>`).join("")}${soft.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : '<ul class="reasons"><li>All avoid-rule checks passed</li></ul>'}
+    <ul class="reasons">${hard.map((r) => `<li class="hard">${esc(r)}</li>`).join("")}${soft.map((r) => `<li>${esc(r)}</li>`).join("")}${hard.length + soft.length ? "" : "<li>All avoid-rule checks passed</li>"}${(x.info || []).map((r) => `<li class="info">${esc(r)}</li>`).join("")}</ul>
     ${soc ? `<div class="xsoc"><span>X: <b>${soc.n}</b> recent mentions</span><span><b>${soc.last_30m}</b> in 30m</span><span><b>${soc.authors}</b> authors</span><span>max followers <b>${(soc.max_followers || 0).toLocaleString()}</b></span>${soc.top && soc.top[0] ? `<span>top: @${esc(soc.top[0].user)}</span>` : ""}</div>` : ""}
     <div class="sig-act">
-      <a href="https://fomo.family/tokens/solana/${esc(s.mint)}" target="_blank" rel="noopener" style="color:var(--p3);border-color:rgba(139,92,246,.5)">Open in fomo</a>
+      <a href="https://fomo.family/tokens/solana/${esc(s.mint)}" target="_blank" rel="noopener" style="color:var(--p3);border-color:rgba(157,77,255,.5)">Open in fomo</a>
       <button class="tag" data-copy="${esc(s.mint)}">Copy CA</button>
       <a href="https://pump.fun/coin/${esc(s.mint)}" target="_blank" rel="noopener">pump.fun</a>
       <a href="https://dexscreener.com/solana/${esc(s.mint)}" target="_blank" rel="noopener">DexScreener</a>
@@ -236,10 +237,10 @@ function drawCurve(pts) {
   const line = pts.map((q, i) => `${i ? "L" : "M"}${X(q[0]).toFixed(1)},${Y(q[1]).toFixed(1)}`).join(" ");
   const last = pts[pts.length - 1][1];
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".22"/><stop offset="1" stop-color="#8b5cf6" stop-opacity=".02"/></linearGradient></defs>
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9d4dff" stop-opacity=".22"/><stop offset="1" stop-color="#9d4dff" stop-opacity=".02"/></linearGradient></defs>
     <line x1="${p}" x2="${W - p}" y1="${Y(0)}" y2="${Y(0)}" stroke="#2b2245" stroke-dasharray="4 5"/>
     <path d="${line} L${X(x1)},${Y(0)} L${X(x0)},${Y(0)} Z" fill="url(#g)"/>
-    <path d="${line}" fill="none" stroke="${last >= 0 ? "#a78bfa" : "#fb7185"}" stroke-width="2.4" vector-effect="non-scaling-stroke"/>
+    <path d="${line}" fill="none" stroke="${last >= 0 ? "#b57bff" : "#ff4d6d"}" stroke-width="2.4" vector-effect="non-scaling-stroke"/>
     <text x="${W - p}" y="${Math.max(14, Y(last) - 8)}" text-anchor="end" fill="#c4b5fd" font-size="13" font-family="JetBrains Mono">${esc(sgn(last))}</text></svg>`;
 }
 
@@ -298,7 +299,7 @@ function drawHours(rows, nowH) {
     const h = 20 + (H - 2 * p - 20) * (r.per1k - min * 0.9) / (max - min * 0.9);
     const x = p + r.et * bw, y = H - p - h, cur = r.et === nowH;
     const a = 0.25 + 0.75 * (r.per1k - min) / (max - min);
-    return `<rect x="${(x + 2).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 4).toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${cur ? "#c4b5fd" : `rgba(139,92,246,${a.toFixed(2)})`}"><title>${r.et}:00 ET · ${r.per1k} grads/1k · ${r.launches} launches/hr</title></rect>
+    return `<rect x="${(x + 2).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 4).toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${cur ? "#dcc2ff" : `rgba(157,77,255,${a.toFixed(2)})`}"><title>${r.et}:00 ET · ${r.per1k} grads/1k · ${r.launches} launches/hr</title></rect>
       ${r.et % 3 === 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle" fill="#9a92b5" font-size="20" font-family="JetBrains Mono">${r.et}</text>` : ""}`;
   }).join("");
   $("#clockchart").innerHTML = `<svg viewBox="0 0 ${W} ${H}">${bars}</svg>`;
