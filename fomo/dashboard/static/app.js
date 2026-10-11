@@ -325,7 +325,10 @@ async function drawChart(mint, first) {
     <span class="k"><i style="background:#ff4d6d"></i>$80k max</span><span class="k">▲ leader buy · ▼ leader sell · ● you / paper</span>
     ${reasons ? `<span class="dim">${reasons}</span>` : ""}${d.graduated ? `<span class="dim">Graduated: candles cover the bonding-curve phase</span>` : ""}`;
   if (!window.LightweightCharts) { $("#chart-main").innerHTML = '<div class="empty">Chart library failed to load.</div>'; return; }
-  if (!d.bars.length) { $("#chart-main").innerHTML = '<div class="empty">No candles for this coin yet.</div>'; return; }
+  if (!d.bars.length) {
+    if (chartObj) { chartObj.remove(); chartObj = null; }
+    $("#chart-main").innerHTML = `<div class="empty">No candles yet${d.age_min != null && d.age_min < 30 ? ` (coin is ${d.age_min} min old)` : ""}. Retrying every 15s…</div>`; return;
+  }
   if (first || !chartObj) {
     if (chartObj) chartObj.remove();
     $("#chart-main").innerHTML = "";

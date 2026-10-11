@@ -222,7 +222,9 @@ def chart_data(mint):
                trades=[{k: t[k] for k in ("id", "mode", "opened_at", "closed_at", "size_usd", "pnl_usd", "entry_mcap", "exit_mcap", "status")} for t in trades],
                verdict=latest["verdict"] if latest else None, model=li.get("model"), plan=plan,
                reasons=(li.get("hard") or []) + (li.get("soft") or []))
-    _chart_cache[mint] = (time.time(), out)
+    out["age_min"] = round((time.time() - created / 1000) / 60, 1)
+    if bars:                                       # never cache "no candles": brand-new coins get them within a minute
+        _chart_cache[mint] = (time.time(), out)
     return out
 
 
