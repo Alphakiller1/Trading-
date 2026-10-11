@@ -342,13 +342,15 @@ $("#xray-form").onsubmit = async (e) => {
 async function loadLeaders() {
   const d = await api("/api/leaders").catch(() => ({ rows: [], job: {} }));
   const j = d.job || {};
-  $("#ljob").textContent = j.running ? `Scoring ${j.done}/${j.total}… (${j.qualified} qualify so far)` : j.finished ? `Last re-score ${ago(j.finished)}: ${j.msg}` : "";
+  const im = d.imp || {};
+  $("#ljob").textContent = [j.running ? `Scoring ${j.done}/${j.total}… (${j.qualified} qualify so far)` : j.finished ? `Last re-score ${ago(j.finished)}: ${j.msg}` : "",
+    im.running ? `fomo leaderboard: ${im.done}/${im.total} scored, ${im.added} added` : im.msg || ""].filter(Boolean).join(" · ");
   $("#trade-tbl"); // no-op
   $("#leader-tbl").innerHTML = `<tr><th>Watch</th><th>Wallet</th><th>Label</th><th class="num">Closed 14d</th><th class="num">ROI 14d</th><th class="num">Win</th><th class="num">Median size</th><th class="num">Median entry mcap</th><th>Last trade</th><th>Source</th><th></th></tr>` +
     (d.rows.length ? d.rows.map((r) => `<tr>
       <td><button class="switch ${r.enabled ? "on" : ""}" data-toggle="${esc(r.wallet)}" data-on="${r.enabled ? 1 : 0}"></button></td>
       <td class="mono"><a data-copy="${esc(r.wallet)}">${short(r.wallet)}</a> <a href="https://pump.fun/profile/${esc(r.wallet)}" target="_blank" rel="noopener" class="dim">↗</a></td>
-      <td>${esc(r.label || "")}</td><td class="num">${r.closed_14d ?? "—"}</td><td class="num ${cls(r.roi_14d)}">${pct(r.roi_14d)}</td>
+      <td title="${esc(r.note || "")}">${esc(r.label || "")}</td><td class="num">${r.closed_14d ?? "—"}</td><td class="num ${cls(r.roi_14d)}">${pct(r.roi_14d)}</td>
       <td class="num">${r.win_rate != null ? pct(r.win_rate).replace("+", "") : "—"}</td><td class="num">${r.median_size != null ? usd(r.median_size, 0) : "—"}</td>
       <td class="num">${kfmt(r.median_mcap)}${r.median_mcap && r.median_mcap < 5500 ? ' <span class="chip CAUTION" title="Buys seconds after launch: hard to follow at app speed">FAST</span>' : ""}</td>
       <td class="dim">${ago(r.last_trade_at)}</td><td class="dim">${esc(r.source || "")}</td>

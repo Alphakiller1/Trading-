@@ -103,3 +103,38 @@ def _refresh():
         job["qualified"] = q
     job.update(running=False, finished=time.time(), msg=f"{q} wallets qualify")
     store.alert("info", "LEADERS", f"Leader list refreshed: {q} qualify", f"Scored {len(wallets)} small wallets")
+
+
+imp = {"running": False, "done": 0, "total": 0, "added": 0, "msg": ""}
+
+
+def import_async(cands):
+    """Score outside wallets (e.g. fomo's leaderboard) with the same leader rule; add qualifiers."""
+    if imp["running"]:
+        return False
+    threading.Thread(target=_import, args=(cands,), daemon=True).start()
+    return True
+
+
+def _import(cands):
+    imp.update(running=True, done=0, total=len(cands), added=0, msg="Scoring imported wallets")
+    added = 0
+    for c in cands:
+        w = c["wallet"]
+        try:
+            pos = pump.portfolio(w)
+            s = score_wallet(pos) if pos else None
+            if s and s["qualified"]:
+                row = {k: s[k] for k in ("closed_14d", "roi_14d", "win_rate", "median_size", "median_mcap", "last_trade_at")}
+                row.update(updated_at=time.time(), label=c.get("label"), note=c.get("note"))
+                if store.one("SELECT 1 x FROM leaders WHERE wallet=?", (w,)):
+                    store.update("leaders", "wallet", w, row)
+                else:
+                    store.insert("leaders", row | {"wallet": w, "enabled": 1, "source": "fomo"})
+                added += 1
+        except Exception as e:
+            imp["msg"] = f"error on {w[:6]}: {e}"
+        imp["done"] += 1
+        imp["added"] = added
+    imp.update(running=False, msg=f"{added} of {len(cands)} fomo traders qualify")
+    store.alert("info", "LEADERS", f"fomo leaderboard import: {added} of {len(cands)} qualify", "Added to Leaders with source 'fomo'.")

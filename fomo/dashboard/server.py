@@ -243,7 +243,7 @@ class H(BaseHTTPRequestHandler):
                         t["value_usd"] = round(v, 2); t["upnl"] = round(v - t["size_usd"], 2)
                 return self._json(dict(rows=rows, stats={m: trade_stats(m) for m in ("paper", "real")}))
             if p == "/api/leaders":
-                return self._json(dict(rows=store.q("SELECT * FROM leaders ORDER BY enabled DESC, roi_14d DESC"), job=leaders.job))
+                return self._json(dict(rows=store.q("SELECT * FROM leaders ORDER BY enabled DESC, roi_14d DESC"), job=leaders.job, imp=leaders.imp))
             if p == "/api/xray":
                 mint = qs.get("mint", "").strip()
                 if not re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]{32,44}", mint):
@@ -297,6 +297,9 @@ class H(BaseHTTPRequestHandler):
                 else:
                     store.update("leaders", "wallet", w, {k: b[k] for k in ("enabled", "label", "note") if k in b})
                 return self._json({"ok": True})
+            if p == "/api/leaders/import":
+                cands = [c for c in b.get("candidates", []) if re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]{32,44}", c.get("wallet", ""))]
+                return self._json({"started": leaders.import_async(cands[:400]), "n": len(cands)})
             if p == "/api/leaders/refresh":
                 return self._json({"started": leaders.refresh_async()})
             if p == "/api/settings":
