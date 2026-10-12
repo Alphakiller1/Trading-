@@ -642,10 +642,13 @@ def hold_refit_loop():
         try:
             age = time.time() - _os.path.getmtime(holdplan.PATH) if _os.path.exists(holdplan.PATH) else 1e9
             if age > 6 * 3600:
+                import subprocess, sys as _sys
                 for name in ("hold_fit", "zone_fit"):
-                    spec = importlib.util.spec_from_file_location(name, _os.path.join(config.ROOT, "tools", name + ".py"))
-                    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-                    mod.main()
+                    # separate process: a crash or memory spike in a refit can't take the engine down
+                    r = subprocess.run([_sys.executable, _os.path.join(config.ROOT, "tools", name + ".py")],
+                                       cwd=config.ROOT, capture_output=True, text=True, timeout=3600)
+                    if r.returncode != 0:
+                        log_error(name, (r.stderr or "")[-300:])
         except Exception:
             log_error("hold_fit", traceback.format_exc(limit=2))
         time.sleep(1800)
